@@ -1,0 +1,391 @@
+.roulette-bl{color:#333937}
+.roulette-re{color:#e73356}
+.roulette-gr{color:#17af0d}
+
+.roulette-select div{
+	font-size: 34px;
+	cursor:pointer;
+	height:60px;
+	line-height:40px;
+	padding:10px
+}
+
+.roulette-selected{
+	color:white;
+}
+
+.roulette-selected.roulette-bl{
+	background:#333937;
+}
+
+.roulette-selected.roulette-re{
+	background:#e73356;
+}
+
+.roulette-selected.roulette-gr{
+	background:#17af0d;
+}
+
+.last-shot{
+	border-radius:100%;
+	padding:8px;
+	color:white;
+	width: 38px;
+	height:38px;
+	margin: 10px 1px 1px 1px;
+	display:inline-block;
+	overflow: hidden;
+}
+
+.last-shot.bl{
+	background:#333937;
+}
+
+.last-shot.re{
+	background:#e73356;
+}
+
+.last-shot.gr{
+	background:#17af0d;
+}
+
+.next-shot{
+	border: 1px solid #981e1c;
+	border-style: dashed;
+}
+
+.roulette{
+	background:url(../img/roulette.png);
+	background-repeat: repeat-x;	
+	height:50px;
+	transition: all 8s cubic-bezier(0, 0, 0, 1);
+	transform: translate3d(0, 0, 0);
+}
+
+.roulette-indicator{
+	background:yellow;
+	height:50px;
+	width:3px;
+	margin-left: auto;
+  	margin-right: auto;
+}
+
+.roulette-alert{
+	margin-bottom:5px
+}
+
+.r-status{
+	font-size:25px;
+	padding-top:10px;
+	padding-bottom:10px;
+}
+
+.r-score-result{
+	transition:all 3.0s ease-out;
+	position:absolute;
+	top:50px;
+	font-size:25px;
+	opacity:1;
+}
+
+.top-row img{
+    width: 45px;
+    vertical-align: middle;
+    margin: 5px;
+}
+
+.game-select{
+	height: 100px;
+    border-radius: 10px;
+    cursor:pointer;
+    border: 2px solid black;
+    margin-bottom:10px;
+}
+
+.game-select.disabled{
+	opacity:0.7;
+	pointer-events:none;
+}
+
+.game-select#rou{
+   	background-position-x: 1px;
+    background-repeat-x: repeat;
+    background-repeat-y: no-repeat;
+    background-position-y: 50%;
+    background-image: linear-gradient( rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0.75) ), url(../img/roulette.png);
+    transition:background-position-x 8s cubic-bezier(0, 0, 0, 1);
+    background-size: 1000px;
+    background-color: #424242;
+    transform: translate3d(0, 0, 0);
+}
+
+.game-select#ras{
+	background-size: 150px;
+   	background-position-x: 1px;
+    background-repeat-x: repeat;
+    background-repeat-y: repeat;
+    background-position-y: 50%;
+    /*linear-gradient( rgba(0, 0, 0, 0.25), rgba(0, 0, 0, 0.25) ),*/
+    background-image: url(../img/coins.jpg);
+    transition:background-position 8s cubic-bezier(0, 0, 0, 1);
+    background-color: black;
+    transform: translate3d(0, 0, 0);
+}
+
+.game-select:hover{
+	box-shadow:0px 0px 20px 5px yellow;
+}
+
+.g-logo{
+	width:50%;
+	display:inline-block;
+	vertical-align:middle;
+}
+
+.g-text{
+	width:50%;
+	font-size:40px;
+	display:inline-block;
+	vertical-align: middle;
+	text-align: left;
+}
+
+@media screen and (max-width: 440px) {
+	.g-text{
+		font-size:25px;
+	}
+}
+
+.game-select#rou .g-text{
+	color:white;
+}
+
+.game-select#ras .g-text{
+	color:black;
+}
+
+.g-text-cost{
+	font-size: 15px;
+}
+
+.raspadita{
+	width:260px;
+	float:left;
+	margin-top:15px;
+}
+
+.raspadita .button-r{
+	margin-top:15px;
+}
+
+@media screen and (max-width: 750px) {
+	.scores{
+		width:100% !important;
+	}
+	.raspadita{
+		float:none; 
+		margin: auto;
+		margin-top:0px;
+		margin-bottom:15px;
+	}
+}
+
+.scores{
+	width: calc(100% - 260px);
+	display:inline-block;
+}
+
+.scores #tabla-scores{
+	width:100%;
+}
+
+.suma{
+	font-weight:bold;
+}
+
+.score{
+	font-weight:bold;
+	color:#aa0000;
+}
+
+.rasp-game{
+	width:100%;
+}
+
+.rasp-game .pos{
+	cursor:pointer;
+	border:1px solid #b3b3b3;
+	height: 61px;
+	width: 61px;
+	transition: all 0.3s ease;
+	font-size: 28px;
+}
+
+.rasp-game .pos.marked{
+	box-shadow: 0px 0px 17px 1px rgb(0, 149, 255);
+}
+
+.rasp-game .flecha{
+	width:40px;
+	height:40px;
+	font-size:26px;
+	cursor:pointer;
+	background:white;
+	color:black;
+}
+
+.rasp-game .flecha:hover i{
+	box-shadow: 0px 0px 17px 5px rgba(255,255,0,1);
+	border-radius:100%;
+}
+
+.rasp-game .flecha.disabled{
+	opacity:0.4;
+	pointer-events:none;
+}
+
+.rasp-game .pos:hover{
+	background:#b3b3b3;
+}
+
+.rasp-game .pos.revealed{
+	pointer-events:none;
+}
+
+.g-status{
+	font-weight:bold;
+}
+
+.button.store{
+	background:#7c1a7d
+}
+
+.button.store:hover{
+	background:#0f6fca;
+}
+
+.button i{
+	font-size: 20px;
+}
+
+.new-item{
+    text-transform: uppercase;
+	border-radius:5px;
+	color:white;
+	vertical-align: middle;
+	background:red;
+	font-size:8px;
+	padding:5px;   
+}
+
+.reward.not-unlocked{
+	background: #7a7a7a !important;
+}
+
+.reward .complete-status{
+	display: inline-block;
+	width: 75%;
+    background: white;
+    padding: 3px;
+    overflow: hidden;
+    height: 14px;
+    margin-top: 25px;
+    border-radius: 10px;
+}
+
+.reward .complete-percentage{
+	font-size: 20px;
+    color: white;
+   	margin: 0px 10px;
+    display: inline-block;
+}
+
+.reward .complete-status .completed{
+	background: #5562ee;
+    width: 0%;
+    height: 100%;
+    border-radius: 10px;
+}
+
+.reward{
+	width: 100%;
+    padding: 15px;
+    height: auto;
+    min-height: 105px;
+    background: #5562ee;
+    border-radius: 5px;
+    color: white;
+    margin-bottom: 9px;
+}
+
+.reward i{
+	font-size: 60px;
+    margin-right: 15px;
+    color: white;
+    width: 70px;
+    line-height: 70px;
+    height: 70px;
+    border-radius: 100%;
+    background: #bf2222;
+    vertical-align: top;
+    float: left;
+}
+
+.reward .name{
+	text-align:left;
+}
+.reward .desc{
+	text-align:left;
+	font-size:11px;
+}
+
+.open-reward{
+    display: inline-block;
+    width: 70px;
+    vertical-align: middle;
+    margin: 0px;
+    margin-left: 20px;
+    transform: translateY(50%);
+}
+
+.reward .info{
+    display: inline-block;
+    width: 60%;
+}
+
+.mgo-faq i{
+    font-size: 25px;
+    vertical-align: middle;
+    margin-right: 8px;
+}
+
+.mgo-faq .answer{
+	font-size:15px; 
+	margin-bottom:20px;
+}
+
+.mgo-faq .question{
+	font-weight:bold;
+}
+
+.mgo-faq .compulsive-game-alert{
+	width: 100%; 
+	background:#ff6c6c;
+	text-align:center;
+	font-size:10px;
+	color: white;
+    display: inline-block;
+    padding: 6px 12px;
+    border-radius: 5px;
+   	margin: 4px;
+}
+
+.faq-link {
+    color: #0184f1;
+    text-decoration: none;
+    cursor:pointer;
+}
+
+.faq-link:hover {
+    text-decoration: underline;
+}
