@@ -1,4 +1,5 @@
 const mysql = require('mysql');
+
 class Database {
     constructor(config) {
         this.connection = mysql.createConnection(config);
@@ -12,8 +13,10 @@ class Database {
     query(sql, args) {
         return new Promise((resolve, reject) => {
             this.connection.query(sql, args, (err, rows) => {
-                if (err)
+                if (err){
+                    console.error(err);
                     return reject(err);
+                }
                 resolve(rows);
             });
         });
@@ -29,3 +32,5 @@ class Database {
         });
     }
 }
+
+module.exports = Database;

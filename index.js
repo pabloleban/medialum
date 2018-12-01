@@ -1,8 +1,9 @@
 const app = require('express')();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
-const Database = require('./Database');
+const Database = require('./server/Database');
 const database = new Database({host: "localhost", user: "root", password: ""});
+const db_methods = require('./server/db_methods')
 
 io.on('connection', function(socket){
     console.log('a user connected');

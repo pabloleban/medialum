@@ -1,8 +1,8 @@
-function getAllUsersData(){
-	var sql = "select * from usuarios;";
-	database.query(sql).then(result => {
-		var data = [];
-		result.map(r => {
+exports.getAllUsersData = () => {
+	let sql = "select * from usuarios;";
+	return database.query(sql).then(result => {
+		let data = [];
+		result.forEach(r => {
 			delete r.password;
 			data[r.username] = r;
 		})
@@ -10,19 +10,18 @@ function getAllUsersData(){
 	});
 }
 
-function getAllUsersDataOfUser(username){
+exports.getAllUsersDataOfUser = username => {
 	const original_colors = ['FF0000','FF4B4B','FF8585','BD6262','981616','9E8282','9C0000','FF8300','BD6100','FFA547','926739','864501','D6BD00','CAC28A','948621','9EC700','B2CE45','949E6A','556900','316900','63D400','80DC30','81A95E','68B525','23D45B','59CE7E','08E29D','6FD0B1','2B9472','02d2d4','4CD3D4','0070FF','63A8FF','0056C3','91C2FF','2900FF','180098','9B8BEF','5939FF','BE39FF','AB00FF','8600C7','B77BD4','FF00E9','FF76F3','960089','B97AB4','FF0068','FF79B0','A00042','FFA700'];
 	
-	var colors = original_colors.slice(0);
+	let colors = [...original_colors]
 	
-	var sql = `select u.* from usuarios u where u.id in
+	let sql = `select u.* from usuarios u where u.id in
 				(select user_id from roles_usuarios where rol_id in
 					(select rol_id from roles_usuarios where user_id in
 						(select u2.id from usuarios u2 where u2.username= '${username}'))) and u.habilitado = 1;`;
 	
-	database.query(sql).then(result => {
-		var usersData = [];
-		result.map(r => {
+	return database.query(sql).then(result => {
+		result.forEach(r => {
 			delete r.password;
 			delete r.recover_user_code;
 			delete r.medialum_go_sound;
@@ -33,24 +32,24 @@ function getAllUsersDataOfUser(username){
 			delete r.recordatorio_notif;
 			
 			if(colors.length <= 0){
-				colors = original_colors.slice(0);
+				colors = [...original_colors]
 			}
 		
-			var hash = parseInt((username + '').replace(/[^a-f0-9]/gi, ''), 16);
+			let hash = parseInt((username + '').replace(/[^a-f0-9]/gi, ''), 16);
 			
-			var userNumber = hash % colors.length;
+			let userNumber = hash % colors.length;
 				
 			r.color = colors[userNumber];
 				
 			colors.splice(userNumber,1);
 				
 			if(r.nacimiento){
-				var date = new Date(r.nacimiento);
+				let date = new Date(r.nacimiento);
 			
-				var meses = array("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre");
+				let meses = array("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre");
 			
-				var dia = date.getDate();
-				var mes = date.getMonth();
+				let dia = date.getDate();
+				let mes = date.getMonth();
 			
 				r.nacimiento = `${dia} de ${meses[mes]}`;
 			}
@@ -65,28 +64,28 @@ function getAllUsersDataOfUser(username){
 	});
 }
 
-function getUserID(username){
-	var sql = `select id from usuarios where username = '${username}'`;
+exports.getUserID = username => {
+	let sql = `select id from usuarios where username = '${username}'`;
 	
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		if(result.length > 0){
 			return result[0].id;
 		}
 	})
 }
 
-function getUsernameByID(id){
-	var sql = `select username from usuarios where id = '${id}'`;
+exports.getUsernameByID = id => {
+	let sql = `select username from usuarios where id = '${id}'`;
 	
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		if(result.length > 0){
 			return result[0].username;
 		}
 	})
 }
 
-function getUnreadMessages(user_id){
-	var sql = `select count(group_id_to) notifications, concat('${GROUPS_PREFIX}',mg.group_id_to) entity_from
+exports.getUnreadMessages = user_id => {
+	let sql = `select count(group_id_to) notifications, concat('${GROUPS_PREFIX}',mg.group_id_to) entity_from
 			from messages_groups_seen mgs, messages_groups mg
 			where mgs.user_id = ${user_id}
 			and mgs.seen = 0
@@ -100,9 +99,9 @@ function getUnreadMessages(user_id){
 			and u.habilitado = 1
 			group by entity_from`;
 	
-	var notifications = [];
+	let notifications = [];
 
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		result.map(r => {
 			notifications.push({notifications: r.notifications, entity: r.entity_from});
 		})
@@ -111,8 +110,8 @@ function getUnreadMessages(user_id){
 	})
 }
 
-function getEntitiesOrder(user_id){
-	var sql = `select us
+exports.getEntitiesOrder = user_id => {
+	let sql = `select us
 			from (select concat('${GROUPS_PREFIX}',group_id_to) us, max(gm.date) fec
 			           from groups_members mg, messages_groups gm
 			           where group_id_to = group_id 
@@ -128,9 +127,9 @@ function getEntitiesOrder(user_id){
 			     ) tabla
 			order by fec desc`;
 	
-	var order = [];
+	let order = [];
 	
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		result.map(r => {
 			order.push(r.us);
 		})
@@ -139,12 +138,12 @@ function getEntitiesOrder(user_id){
 	});
 }
 
-function getGroups(){
-	var sql = "SELECT * FROM groups";
+exports.getGroups = () => {
+	let sql = "SELECT * FROM groups";
 
-	var allgroups = [];
+	let allgroups = [];
 
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		result.map(r => {
 			allgroups.push({id: GROUPS_PREFIX+r.id, users: [], name: r.name});
 			
@@ -152,7 +151,7 @@ function getGroups(){
 			
 			database.query(sql).then(result => {
 				if (result.length > 0) {
-					var group_index;
+					let group_index;
 					allgroups.map((g, index) => {
 						if(g.id==GROUPS_PREFIX+r.id){
 							group_index = index;
@@ -170,11 +169,11 @@ function getGroups(){
 	});
 }
 
-function getAllRoles(){
-	var roles = [];
+exports.getAllRoles = () => {
+	let roles = [];
 	
-	var sql = "SELECT * FROM roles";
-	database.query(sql).then(result => {
+	let sql = "SELECT * FROM roles";
+	return database.query(sql).then(result => {
 		result.map(r => {
 			roles.push({id: r.id, rol_name: r.nombre});
 		})
@@ -183,11 +182,11 @@ function getAllRoles(){
 	});
 }
 
-function getRolesByID($user_id){
-	var roles = []
+exports.getRolesByID = user_id => {
+	let roles = []
 	
-	var sql = `SELECT * FROM roles_usuarios where user_id = ${user_id};`
-	database.query(sql).then(result => {
+	let sql = `SELECT * FROM roles_usuarios where user_id = ${user_id};`
+	return database.query(sql).then(result => {
 		result.map(r => {
 			roles.push(r.rol_id);
 		})
@@ -196,16 +195,16 @@ function getRolesByID($user_id){
 	});
 }
 
-function insertMessage(user_from, entity_id, message, is_group, type, data){
+exports.insertMessage = (user_from, entity_id, message, is_group, type, data) => {
 	//type
 	// 0 = message
 	// 1 = file
 	// 2 = status
 	// 3 = survey
 
-	var sql;
+	let sql;
 	
-	var message = medialumEncrypt(message);
+	let message = medialumEncrypt(message);
 
 	if(!is_group){
 		sql = `INSERT into messages_users 
@@ -217,14 +216,14 @@ function insertMessage(user_from, entity_id, message, is_group, type, data){
 	} else {
 		entity_id = getGroupID(entity_id);
 		
-		var sql = `INSERT into messages_groups 
+		let sql = `INSERT into messages_groups 
 				(user_id_from, group_id_to, message, date, type, data) 
 				values 
 				(${user_from},${entity_id},'${message}', NOW(), ${type}, '${data}')`;
 
 		database.query(sql).then(result => {
 			if(groups[entity_id].users.length - 1 > 0){
-				var insertedMessageID = result.insert_id
+				let insertedMessageID = result.insert_id
 
 				sql = "INSERT into messages_groups_seen (message_id, user_id) values ";
 
@@ -243,25 +242,25 @@ function insertMessage(user_from, entity_id, message, is_group, type, data){
 	}
 }
 
-function insertStatus(group_id, status_msg){
-	var message = medialumEncrypt(status_msg);
+exports.insertStatus = (group_id, status_msg) => {
+	let message = medialumEncrypt(status_msg);
 	
-	var sql = `INSERT into messages_groups 
+	let sql = `INSERT into messages_groups 
 				(user_id_from, group_id_to, message, date, type) 
 				values 
 				(null,${group_id},'${message}', NOW(), 2);`;
 
-	database.query(sql);
+	return database.query(sql);
 }
 
-function login(username, password){
-	var sql = `SELECT * FROM usuarios 
+exports.login = (username, password) => {
+	let sql = `SELECT * FROM usuarios 
 			where username='${username}' 
 			AND password='${password}' 
 			and habilitado = 1 
 			LIMIT 1;`;
 		
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		if(result.length > 0){
 			return true
 		} else {
@@ -271,11 +270,11 @@ function login(username, password){
 }
 
 //crea grupo y devuelve el id del grupo creado
-function createGroup(usersArray, groupName){
-	var sql = `INSERT into groups (name, date) values ('${groupName}', NOW());`;
+exports.createGroup = (usersArray, groupName) => {
+	let sql = `INSERT into groups (name, date) values ('${groupName}', NOW());`;
 	
-	database.query(sql).then(result => {
-		var insertedGroupId = result.insertId;	
+	return database.query(sql).then(result => {
+		let insertedGroupId = result.insertId;	
 
 		usersArray.map(u => {
 			sql = `INSERT into groups_members (group_id, user_id, date) 
@@ -289,17 +288,17 @@ function createGroup(usersArray, groupName){
 	
 }
 
-function exitGroup(user_id, group_id){	
-	var sql = `DELETE from groups_members where user_id = ${user_id} and group_id = ${group_id}`;
+exports.exitGroup = (user_id, group_id) => {	
+	let sql = `DELETE from groups_members where user_id = ${user_id} and group_id = ${group_id}`;
 	
 	database.query(sql);
 }
 
-function addMemberToGroup(user_id, group_id){
+exports.addMemberToGroup = (user_id, group_id) => {
 	//checkea si ya no esta en el grupo
-	var sql = `SELECT * FROM groups_members WHERE group_id = ${group_id} AND user_id = ${user_id}`;
+	let sql = `SELECT * FROM groups_members WHERE group_id = ${group_id} AND user_id = ${user_id}`;
 	
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		if(result.length <= 0){
 			sql = `INSERT into groups_members (group_id, user_id) values (${group_id}, ${user_id});`;
 		
@@ -308,11 +307,11 @@ function addMemberToGroup(user_id, group_id){
 	})
 }
 
-function changeGroupName(group_id, name, by){
-	var sql = `select name from groups
+exports.changeGroupName = (group_id, name, by) => {
+	let sql = `select name from groups
 			where id = ${group_id}`;
 	
-	database.query(sql).then(result => {
+	return database.query(sql).then(result => {
 		from = "";
 	
 		if (result.length > 0) {
@@ -334,64 +333,105 @@ function changeGroupName(group_id, name, by){
 	})	
 }
 
-function groupMessagesSeen($user_id,$group_id){
-	$sql = "update messages_groups_seen
+exports.groupMessagesSeen = (user_id, group_id) => {
+	let sql = `update messages_groups_seen
 			set seen = 1
-			where user_id = ".$user_id."
-			and message_id in (select id from messages_groups where group_id_to = ".$group_id.");";
+			where user_id = ${user_id}
+			and message_id in (select id from messages_groups where group_id_to = ${group_id});`;
 	
-	db_query($sql);
+	database.query(sql);
 }
 
-function usernameMessagesSeen($user_that_reads,$from_user){
-	$sql = "UPDATE messages_users set seen=1 WHERE user_id_to=".$user_that_reads." AND user_id_from=".$from_user;
+exports.usernameMessagesSeen = (user_that_reads, from_user) => {
+	let sql = `UPDATE messages_users set seen = 1 WHERE user_id_to = ${user_that_reads} AND user_id_from = ${from_user}`;
 	
-	db_query($sql);
+	database.query(sql);
 }
 
-function getHistorial($user_id, $talking_with, $from, $isGroup){
-	$messages_per_page = 20;
+exports.getHistorial = (user_id, talking_with, from, isGroup) => {
+	let messages_per_page = 20;
 	
-	$from = $from*$messages_per_page;
+	from = from * messages_per_page;
 	
-	$sql = "";
-	
-	if($isGroup){
-		$sql = "SELECT clear_date from messages_groups_clear 
-				WHERE group_id = ".$talking_with."
-				AND user_id = ".$user_id."
-				AND message_id is null
-				LIMIT 1;";
-		
-		$result = db_query($sql);
-		
-		$date = "";
-		
-		if ($result->num_rows > 0) {
-			while($row = $result->fetch_assoc()) {
-				$date = $row["clear_date"];
+	let sql = "";
+	let promise = null;
+
+	const retrieveHistorial = (sql) => {
+		return database.query(sql).then(result => {
+			if(result.length > 0){
+				let historial = [];
+			
+				result.forEach(r => {
+					let type = "";
+					switch(let.type){
+						case 0:
+							type = "usermsg";
+							break;
+						case 1:
+							type = "file";
+							break;
+						case 2:
+							type = "status";
+							break;
+						case 3:
+							type = "survey";
+							break;
+						default:
+							type = "usermsg";
+							break;
+					}
+					
+					historial.push({
+						type, 
+						username: r.user_from,
+						message: medialumDecrypt(r.message),
+						target: r.target,
+						date: r.date,
+						data: r.data
+					});
+				})
+				
+				return $historial;
+			} else {
+				return false;
 			}
-		} else {
-			//utilizo una fecha vieja para filtrar
-			$date = "2000-06-09 00:00:00";
-		}
+		});
+	}
+
+	if(isGroup){
+		sql = `SELECT clear_date from messages_groups_clear 
+				WHERE group_id = ${talking_with}
+				AND user_id = ${user_id}
+				AND message_id is null
+				LIMIT 1;`
 		
-		
-		$sql = "SELECT mg.*, concat('".GROUPS_PREFIX."',mg.group_id_to) target, u.username user_from
-				FROM groups_members gm, messages_groups mg 
-				LEFT JOIN usuarios u
-				ON mg.user_id_from = u.id 
-				WHERE mg.group_id_to = gm.group_id
-				AND gm.group_id = ".$talking_with."
-				AND gm.user_id = ".$user_id."
-				AND (u.habilitado = 1 or mg.user_id_from is null)
-				AND mg.date >= gm.date
-				AND mg.date > '".$date."'
-				AND mg.id not in (select message_id from messages_groups_clear where user_id=".$user_id." and message_id is not null)
-				ORDER BY mg.id desc
-				LIMIT ".$from.",".$messages_per_page.";";
+		database.query(sql).then(result => {
+			let date = "";
+
+			if(result.length > 0){
+				date = result[0].clear_date;
+			} else {
+				date = "2000-06-09 00:00:00"
+			}
+
+			return `SELECT mg.*, concat('${GROUPS_PREFIX}',mg.group_id_to) target, u.username user_from
+			FROM groups_members gm, messages_groups mg 
+			LEFT JOIN usuarios u
+			ON mg.user_id_from = u.id 
+			WHERE mg.group_id_to = gm.group_id
+			AND gm.group_id = ${talking_with}
+			AND gm.user_id = ${user_id}
+			AND (u.habilitado = 1 or mg.user_id_from is null)
+			AND mg.date >= gm.date
+			AND mg.date > '${date}'
+			AND mg.id not in (select message_id from messages_groups_clear where user_id = ${user_id} and message_id is not null)
+			ORDER BY mg.id desc
+			LIMIT ${from}, ${messages_per_page};`;
+		});		
+
+		return retrieveHistorial(sql);
 	} else {
-		$sql = "SELECT uf.username user_from, ut.username target, mu.*
+		sql = `SELECT uf.username user_from, ut.username target, mu.*
 				FROM messages_users mu, usuarios uf, usuarios ut
 				WHERE ((mu.user_id_from = ".$user_id." and mu.user_id_to = ".$talking_with." and mu.removed_user_from = 0) OR
 				       (mu.user_id_to = ".$user_id." and mu.user_id_from = ".$talking_with." and mu.removed_user_to = 0))
@@ -400,204 +440,179 @@ function getHistorial($user_id, $talking_with, $from, $isGroup){
 				AND uf.habilitado = 1
 				AND ut.habilitado = 1
 				ORDER BY mu.id desc
-				LIMIT ".$from.",".$messages_per_page.";";
+				LIMIT ".$from.",".$messages_per_page.";`
 			
+		return retrieveHistorial(sql);
 	}
-	
-	$result = db_query($sql);
-	if ($result->num_rows > 0) {
-		$historial = array();
+}
+
+exports.clearMessages = (user_id, entity) => {
+	if(isGroup(entity)){
+		entity = getGroupID(entity);
 		
-		while($row = $result->fetch_assoc()) {
-			$type = "";
-			switch($row["type"]){
-				case 0:
-					$type="usermsg";
-					break;
-				case 1:
-					$type="file";
-					break;
-				case 2:
-					$type="status";
-					break;
-				case 3:
-					$type="survey";
-					break;
-				default:
-					$type="usermsg";
-					break;
+		let sql = `SELECT * FROM messages_groups_clear
+			where user_id = ${user_id}
+			and group_id = ${entity}
+			and message_id is null;`;
+		
+		database.query(sql).then(result => {
+			if (result.length > 0) {
+				let sql = `UPDATE messages_groups_clear
+				SET clear_date = NOW()
+				where user_id = ${user_id}
+				and group_id = ${entity}
+				and message_id is null`;
+				
+				database.query(sql);
+			} else {
+				let sql = `INSERT into messages_groups_clear
+						(user_id, group_id, clear_date) 
+						values (${user_id}, ${entity}, NOW());`;
+				
+				database.query(sql);
 			}
-			
-			$historial[] = array('type'=>$type, 'username'=>$row["user_from"], 'message'=>medialumDecrypt($row["message"]),'target'=>$row["target"],'date'=>$row["date"], 'data'=>$row['data']);
-		}
+		})
 		
-		return $historial;
-	} else {
-		return false;
-	}
-}
 
-function clearMessages($user_id, $entity){
-	if(isGroup($entity)){
-		$entity = getGroupID($entity);
-		
-		$sql = "SELECT * FROM messages_groups_clear
-			where user_id = ".$user_id."
-			and group_id = ".$entity."
-			and message_id is null;";
-		
-		$result = db_query($sql);
-		
-		if ($result->num_rows > 0) {
-			$sql = "UPDATE messages_groups_clear
-			SET clear_date = NOW()
-			where user_id = ".$user_id."
-			and group_id = ".$entity."
-			and message_id is null";
-			
-			db_query($sql);
-		} else {
-			$sql = "INSERT into messages_groups_clear
-					(user_id,group_id,clear_date) 
-					values (".$user_id.",".$entity.",NOW());";
-			
-			db_query($sql);
-		}
 	} else {
-		$entity = getUserID($entity);
+		entity = getUserID(entity);
 		
-		$sql = "UPDATE messages_users
+		//TODO: preguntarle a fercho si esta bien hacer dos queries
+
+		sql = `UPDATE messages_users
 			SET removed_user_from = 1
-			where user_id_from = ".$user_id."
-			and user_id_to = ".$entity."
-			and removed_user_from = 0";
+			where user_id_from = ${user_id}
+			and user_id_to = ${entity}
+			and removed_user_from = 0 `;
 		
-		db_query($sql);
+		database.query(sql);
 		
-		$sql = "UPDATE messages_users
+		sql = `UPDATE messages_users
 			SET removed_user_to = 1
-			where user_id_to = ".$user_id."
-			and user_id_from = ".$entity."
-			and removed_user_to = 0";
+			where user_id_to = ${user_id}
+			and user_id_from = ${entity}
+			and removed_user_to = 0`;
 		
-		db_query($sql);
+		database.query(sql);
 	}
 }
 
-function clearSingleMessage($user_id,$entity,$date,$offset){	
-	if(isGroup($entity)){
-		$entity = getGroupID($entity);
+exports.clearSingleMessage = (user_id, entity, date, offset) => {	
+	if(isGroup(entity)){
+		entity = getGroupID(entity);
 		
-		$sql = "select * from messages_groups
+		let sql = `select * from messages_groups
 				where group_id_to = ".$entity."
 				and date = '".$date."'
-				LIMIT ".$offset.",1";
+				LIMIT ".$offset.",1`;
 		
-		$result = db_query($sql);
-		
-		if ($result->num_rows > 0) {
-			$id=-1;
-				
-			while($row = $result->fetch_assoc()) {
-				$id = $row["id"];
+		database.query(sql).then(result => {
+			if (result.length > 0) {
+				let id = result[0].id;
+								
+				let sql = `INSERT into messages_groups_clear
+						(user_id,group_id,clear_date,message_id)
+						values (${user_id}, ${entity}, NOW(), ${id})`;
+					
+				database.query(sql);
 			}
-			
-			$sql = "INSERT into messages_groups_clear
-					(user_id,group_id,clear_date,message_id)
-					values (".$user_id.",".$entity.",NOW(),".$id.");";
-				
-			db_query($sql);
-		}
+		})
+		
 	} else {
-		$entity = getUserID($entity);
+		entity = getUserID(entity);
 	
-		$sql = "select * from messages_users
-				where user_id_from in (".$user_id.",".$entity.")
-				and user_id_to in (".$user_id.",".$entity.")
+		sql = `select * from messages_users
+				where user_id_from in (${user_id}, ${entity})
+				and user_id_to in (${user_id}, ${entity})
 				and (removed_user_from = 0 or removed_user_to = 0)
-				and date = '".$date."'
-				LIMIT ".$offset.",1";
+				and date = '${date}'
+				LIMIT ${offset}, 1`;
 		
-		$result = db_query($sql);
-		
-		if ($result->num_rows > 0) {
-			$id=-1;
-			$from=-1;
-			
-			while($row = $result->fetch_assoc()) {
-				$id = $row["id"];
-				$from = $row["user_id_from"];
+		database.query(sql).then(result => {
+			if (result.length > 0) {
+				id = result[0].id;
+				from = result[0].user_id_from;
+				
+				sql = `UPDATE messages_users
+					SET ${ from == user_id ? "removed_user_from" : "removed_user_to" } = 1
+					where id = ${id}`;
+				
+				database.query(sql)
 			}
-			
-			$sql = "UPDATE messages_users
-				SET ".(($from==$user_id)?"removed_user_from":"removed_user_to")." = 1
-				where id = ".$id;
-			
-			db_query($sql);
-		}
+		})
 	}
 }
 
-function insertSurvey($group_id, $survey){
-	global $DBConnection;
-	
-	$group_id = getGroupID($group_id);
+exports.insertSurvey = (group_id, survey) => {	
+	group_id = getGroupID(group_id);
 	
 	//inserta survey
-	$sql = "INSERT into surveys (text, type, group_id) values ('".$DBConnection->real_escape_string($survey->text)."','".$DBConnection->real_escape_string($survey->type)."',".$group_id.")";
-	db_query($sql);
-	$inserted_survey_id = $DBConnection->insert_id;
+	let sql = `INSERT into surveys (text, type, group_id) 
+				values ('${survey.text}', '${survey.type}', ${group_id})`;
 	
-	//inserta surveys_options
-	foreach($survey->options as $option){
-		$sql = "INSERT into surveys_options (survey_id, `option`) values (".$inserted_survey_id.",'".$DBConnection->real_escape_string($option)."')";
-		$result = db_query($sql);
-	}
-	
-	return $inserted_survey_id;
+	return database.query(sql).then(result => {
+		let inserted_survey_id = result.insertId;
+
+		//inserta surveys_options
+		survey.options.forEach(option => {
+			let sql = `INSERT into surveys_options (survey_id, \`option\`) 
+						values (${inserted_survey_id}, '${option}')`;
+			database.query(sql);
+		});
+
+		return inserted_survey_id
+	})
 }
 
-function checkSurveyVote($user_id, $survey_id){
+exports.checkSurveyVote = (user_id, survey_id) => {
 	//se fija si ya lo hizo
-	$sql = "SELECT * FROM surveys_votes where user_id=".$user_id." and survey_id=".$survey_id;
-	$result = db_query($sql);
-	if ($result->num_rows > 0) {
-		return false;
-	}
+	let sql = `SELECT * FROM surveys_votes where user_id = ${user_id} and survey_id = ${survey_id}`;
+	
+	const alreadyVoted = new Promise((resolve, reject) => {
+		database.query(sql).then(result => {
+			if(result.length > 0){
+				reject();
+			} else {
+				resolve();
+			}
+		})
+	});
 	
 	//se fija si el usuario pertenece al grupo donde se hizo la survey
-	$sql = "SELECT * from (SELECT * from groups_members where group_id = (SELECT group_id FROM surveys where id=".$survey_id.")) t where t.user_id = ".$user_id;
-	$result = db_query($sql);
-	if ($result->num_rows <= 0) {
-		return false;
-	}
-	
-	return true;
+	let sql = `SELECT * from 
+					(SELECT * from groups_members 
+					where group_id = (SELECT group_id FROM surveys where id = ${survey_id})) t 
+				where t.user_id = ${user_id}`;
+
+	const userInGroup = new Promise((resolve, reject) => { 
+		database.query(sql).then(result => {
+			if (result.length <= 0) {
+				reject();
+			} else {
+				resolve();
+			}
+		});
+	});
+
+	return Promise.all([alreadyVoted, userInGroup])
 }
 
-function voteSurvey($user_id,$survey_id,$option_index){
+exports.voteSurvey = (user_id, survey_id, option_index) => {
 	//obtengo el ID de la opcion
-	$sql = "SELECT id from surveys_options where survey_id=".$survey_id." LIMIT ".$option_index.",1";
-	$result = db_query($sql);
-			
-	$option_id = null;
-	
-	while($row = $result->fetch_assoc()) {
-		$option_id = $row["id"];
-	}
-	
-	if($option_id!=null){
-		$sql = "INSERT into surveys_votes (user_id, survey_id, option_id) values (".$user_id.",".$survey_id.",".$option_id.")";
-		db_query($sql);
-	}
+	let sql = `SELECT id from surveys_options where survey_id = ${survey_id} LIMIT ${option_index}, 1`;
+	database.query(sql).then(result => {
+		if(result.length > 0){
+			option_id = result[0].id;
+			let sql = `INSERT into surveys_votes (user_id, survey_id, option_id) values (${user_id}, ${survey_id}, ${option_id})`;
+			database.query(sql);
+		}
+	});
 }
 
-function disconnectedUser($user_id){
-	$sql = "update usuarios
+exports.disconnectedUser = user_id => {
+	let sql = `update usuarios
 			set disconnected_at = NOW()
-			where id = ".$user_id;
+			where id = ${user_id}`;
 	
-	db_query($sql);
+	database.query(sql);
 }
-
-?>

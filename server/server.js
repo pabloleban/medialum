@@ -1,14 +1,7 @@
-<?php
 include 'constants.php';
 include 'db_connection.php';
 include 'db_methods.php';
 include 'tools.php';
-
-// prevent the server from timing out
-set_time_limit(0);
-
-// include the web sockets server script (the server is started at the far bottom of this file)
-require 'class.PHPWebSocket.php';
 
 $clients = array();
 $groups = getGroups();
