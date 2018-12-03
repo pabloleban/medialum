@@ -11,57 +11,60 @@ exports.getAllUsersData = () => {
 }
 
 exports.getAllUsersDataOfUser = username => {
-	const original_colors = ['FF0000','FF4B4B','FF8585','BD6262','981616','9E8282','9C0000','FF8300','BD6100','FFA547','926739','864501','D6BD00','CAC28A','948621','9EC700','B2CE45','949E6A','556900','316900','63D400','80DC30','81A95E','68B525','23D45B','59CE7E','08E29D','6FD0B1','2B9472','02d2d4','4CD3D4','0070FF','63A8FF','0056C3','91C2FF','2900FF','180098','9B8BEF','5939FF','BE39FF','AB00FF','8600C7','B77BD4','FF00E9','FF76F3','960089','B97AB4','FF0068','FF79B0','A00042','FFA700'];
-	
-	let colors = [...original_colors]
-	
-	let sql = `select u.* from usuarios u where u.id in
-				(select user_id from roles_usuarios where rol_id in
-					(select rol_id from roles_usuarios where user_id in
-						(select u2.id from usuarios u2 where u2.username= '${username}'))) and u.habilitado = 1;`;
-	
-	return database.query(sql).then(result => {
-		result.forEach(r => {
-			delete r.password;
-			delete r.recover_user_code;
-			delete r.medialum_go_sound;
-			delete r.id;
-			delete r.habilitado;
-			delete r.ver_desconectados;
-			delete r.sn_mensaje;
-			delete r.recordatorio_notif;
-			
-			if(colors.length <= 0){
-				colors = [...original_colors]
-			}
+	new Promise ((resolve, reject) => {
+		const original_colors = ['FF0000','FF4B4B','FF8585','BD6262','981616','9E8282','9C0000','FF8300','BD6100','FFA547','926739','864501','D6BD00','CAC28A','948621','9EC700','B2CE45','949E6A','556900','316900','63D400','80DC30','81A95E','68B525','23D45B','59CE7E','08E29D','6FD0B1','2B9472','02d2d4','4CD3D4','0070FF','63A8FF','0056C3','91C2FF','2900FF','180098','9B8BEF','5939FF','BE39FF','AB00FF','8600C7','B77BD4','FF00E9','FF76F3','960089','B97AB4','FF0068','FF79B0','A00042','FFA700'];
 		
-			let hash = parseInt((username + '').replace(/[^a-f0-9]/gi, ''), 16);
-			
-			let userNumber = hash % colors.length;
-				
-			r.color = colors[userNumber];
-				
-			colors.splice(userNumber,1);
-				
-			if(r.nacimiento){
-				let date = new Date(r.nacimiento);
-			
-				let meses = array("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre");
-			
-				let dia = date.getDate();
-				let mes = date.getMonth();
-			
-				r.nacimiento = `${dia} de ${meses[mes]}`;
-			}
-				
-			r.state = "offline";
-			r.typing = false;
-				
-			usersData[r.username] = r;
-		});
+		let colors = [...original_colors]
 		
-		return usersData;
-	});
+		let sql = `select u.* from usuarios u where u.id in
+					(select user_id from roles_usuarios where rol_id in
+						(select rol_id from roles_usuarios where user_id in
+							(select u2.id from usuarios u2 where u2.username= '${username}'))) and u.habilitado = 1;`;
+		
+		database.query(sql).then(result => {
+			result.forEach(r => {
+				delete r.password;
+				delete r.recover_user_code;
+				delete r.medialum_go_sound;
+				delete r.id;
+				delete r.habilitado;
+				delete r.ver_desconectados;
+				delete r.sn_mensaje;
+				delete r.recordatorio_notif;
+				delete r.is_bot
+
+				if(colors.length <= 0){
+					colors = [...original_colors]
+				}
+			
+				let hash = parseInt((username + '').replace(/[^a-f0-9]/gi, ''), 16);
+				
+				let userNumber = hash % colors.length;
+					
+				r.color = colors[userNumber];
+					
+				colors.splice(userNumber,1);
+					
+				if(r.nacimiento){
+					let date = new Date(r.nacimiento);
+				
+					let meses = array("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre");
+				
+					let dia = date.getDate();
+					let mes = date.getMonth();
+				
+					r.nacimiento = `${dia} de ${meses[mes]}`;
+				}
+					
+				r.state = "offline";
+				r.typing = false;
+					
+				usersData[r.username] = r;
+			});
+			
+			resolve(usersData);
+		}, reject);
+	})
 }
 
 exports.getUserID = username => {
@@ -183,16 +186,18 @@ exports.getAllRoles = () => {
 }
 
 exports.getRolesByID = user_id => {
-	let roles = []
+	new Promise ((resolve, reject) => {
+		let roles = []
 	
-	let sql = `SELECT * FROM roles_usuarios where user_id = ${user_id};`
-	return database.query(sql).then(result => {
-		result.map(r => {
-			roles.push(r.rol_id);
-		})
-
-		return roles;
-	});
+		let sql = `SELECT * FROM roles_usuarios where user_id = ${user_id};`
+		database.query(sql).then(result => {
+			result.map(r => {
+				roles.push(r.rol_id);
+			})
+	
+			resolve(roles);
+		}, reject);
+	})
 }
 
 exports.insertMessage = (user_from, entity_id, message, is_group, type, data) => {
@@ -254,19 +259,22 @@ exports.insertStatus = (group_id, status_msg) => {
 }
 
 exports.login = (username, password) => {
-	let sql = `SELECT * FROM usuarios 
-			where username='${username}' 
-			AND password='${password}' 
-			and habilitado = 1 
-			LIMIT 1;`;
-		
-	return database.query(sql).then(result => {
-		if(result.length > 0){
-			return true
-		} else {
-			return false
-		}
-	})
+	return new Promise((resolve, reject) => {
+		let sql = `SELECT * FROM usuarios 
+				where username='${username}' 
+				AND password='${password}' 
+				and habilitado = 1 
+				LIMIT 1;`;
+			
+		database.query(sql).then(result => {
+			if(result.length > 0){
+				delete result[0].password
+				resolve(result[0]);
+			} else {
+				reject();
+			}
+		})
+	});
 }
 
 //crea grupo y devuelve el id del grupo creado

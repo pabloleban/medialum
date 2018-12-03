@@ -1,11 +1,75 @@
-include 'constants.php';
-include 'db_connection.php';
-include 'db_methods.php';
-include 'tools.php';
+const app = require('express')();
+const http = require('http').Server(app);
+const io = require('socket.io')(http);
+const Database = require('./server/Database');
+const database = new Database({host: "localhost", user: "root", password: ""});
+const db_methods = require('./server/db_methods')
 
-$clients = array();
-$groups = getGroups();
-$allUsersData = getAllUsersData();
+const sockets = [];
+
+io.on('connection', function(socket){
+	console.log('a user connected');
+	
+	socket.on('register', data => {
+		db_methods.login(data.username, data.password).then(result => {
+			console.log('login successful');
+
+			//get all user roles
+			const roles = await db_methods.getRolesByID(result.id);
+			
+			const user = { 
+				username: result.username,
+				state: data.state ? data.state : "online",
+				id: result.id, 
+				socket,
+				roles
+			}
+			socket.user = user;
+			sockets.push(user);
+
+			//get all users data (except users without the required roles)
+			const usersProm = db_methods.getAllUsersDataOfUser(socket.user.username).then(result => {
+				socket.emit('all-users', result)
+			}, () => { console.error("Cannot retrieve all users.") })
+			
+			//get all groups
+			const groupsProm = db_methods.getGroupListByUsername(socket.user.username).then(result => {
+				socket.emit('group-list', result);
+			}, () => { console.error("Cannot retrieve group list.") })
+
+			//once data and groups are retrieved, get order and unread messages
+			Promise.all([usersProm, groupsProm]).then(() => {
+				db_methods.getEntitiesOrder(socket.user.id).then(result => {
+					socket.emit('order', result);
+				})
+
+				db_methods.getUnreadMessages(socket.user.id).then(result => {
+					socket.emit('unread_messages', result);
+				})
+			}, () => { console.error("Cannot retrieve order and unread messages.") })
+		
+			sockets.forEach(s => {
+				if(socket.user.roles.includes(s.roles[0]) && s.roles.includes(socket.user.roles[0])){
+					s.emit('connected', socket.username)
+					console.log("Se conecto "+socket.username)
+				}
+			})
+		})
+	})
+
+    socket.on('disconnect', () => {
+		if(socket.id && sockets[socket.id]){
+			delete sockets[socket.id];
+			console.log('logged out '+sockets.username+' disconnected');
+		}
+
+		console.log('user disconnected');
+    });
+});
+
+http.listen(3000, function(){
+    console.log('listening on *:3000');
+});
 
 // when a client sends data to the server
 function wsOnMessage($clientID, $message, $messageLength, $binary) {
@@ -688,22 +752,6 @@ function getGroupID($group){
 	$group_id = str_replace(GROUPS_PREFIX,"",$group);
 	$group_id = intval($group_id);
 	return $group_id;
-}
-
-function refreshUserList($roles){
-	//a todos los usuarios que tengan alguno de los roles pasados, se les manda la userlist
-	global $Server;
-	global $clients;
-	
-	foreach ($clients as $client){
-		foreach($roles as $rol){
-			if(in_array($rol,$client["user"]["roles"])){
-				$Server->wsSend($client["id"], json_encode(getUserList($client["user"]["id"])));
-				break;
-			}
-		}
-	}
-	
 }
 
 // start the server
