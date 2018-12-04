@@ -4,8 +4,10 @@ const io = require('socket.io')(http);
 const Database = require('./server/Database');
 const database = new Database({host: "localhost", user: "root", password: ""});
 const db_methods = require('./server/db_methods')
+const utils = require('./server/utils')
 
 const sockets = [];
+const allUserData = []
 
 io.on('connection', function(socket){
 	console.log('a user connected');
@@ -21,8 +23,7 @@ io.on('connection', function(socket){
 				username: result.username,
 				state: data.state ? data.state : "online",
 				id: result.id, 
-				socket,
-				roles
+				socket
 			}
 			socket.user = user;
 			sockets.push(user);
@@ -49,10 +50,73 @@ io.on('connection', function(socket){
 			}, () => { console.error("Cannot retrieve order and unread messages.") })
 		
 			sockets.forEach(s => {
-				if(socket.user.roles.includes(s.roles[0]) && s.roles.includes(socket.user.roles[0])){
+				if(utils.rolesCheck(socket.user.roles, s.roles)){
 					s.emit('connected', socket.username)
 					console.log("Se conecto "+socket.username)
 				}
+			})
+
+			socket.on('message', data => {
+				data.message = utils.escapeHtml(data.message.trim())
+				
+				if(!utils.isGroup(data.target)){
+
+					const targetUser = allUserData.find(d => d.username === data.target);
+					const senderUser = allUserData.find(d => d.username === data.target);
+
+					if(utils.checkRoles(targetUser.roles, senderUser.roles)){
+						//prepare data to be sent to client
+						const newMessage = {
+							type: "message", 
+							username: senderUser.username, 
+							message: data.message, 
+							randomID: data.randomID, 
+							target: targetUser.target
+						};
+						
+						//send message to all sender instances
+						sockets.filter( s => s.username === senderUser.username).forEach(s => {
+							socket.emit("usrmsg", newMessage);
+						})
+
+						//send message to all target instances
+						sockets.filter( s => s.username === targetUser.username).forEach(s => {
+							s.emit("usrmsg", newMessage)
+						})
+						
+						db_methods.insertMessage(senderUser.id, targetUser.id, newMessage.message, false, 0, null);
+					}
+				} else {
+					$currentGroup = null;sam
+					$users_in_group = array();
+					
+					for($i=0;$i<count($groups);$i++){
+						if($groups[$i]["id"]==$tst_msg->target){
+							$currentGroup = $groups[$i];
+							$users_in_group = $currentGroup["users"];
+						}
+					}
+
+					//checkea que el usuario que manda el msj este en el grupo
+					$is_in_group = false;
+					for($i=0;$i<count($users_in_group);$i++){
+						if($users_in_group[$i]==$user_username){
+							$is_in_group=true;
+							break;
+						}
+					}
+
+					if(!$is_in_group){
+						return;
+					}
+					
+					for($i=0;$i<count($users_in_group);$i++){
+						$json = array('type'=>'usermsg', 'username'=>$user_username, 'message'=>$user_message, 'randomID'=>$random_id, 'target'=>$tst_msg->target);
+						send_message(json_encode($json),$users_in_group[$i]);
+					}
+					
+					insertMessage($user["id"],$tst_msg->target,$user_message,true,0, null);
+				}	
 			})
 		})
 	})
@@ -101,49 +165,7 @@ function wsOnMessage($clientID, $message, $messageLength, $binary) {
 		    
 			case "message":
 
-				$user_username = $user["username"];//sender username	
-				$user_message = rtrim(htmlspecialchars($tst_msg->message)); //message text
-				$random_id = $tst_msg->randomID;
 				
-				if(!isGroup($tst_msg->target)){
-					//prepare data to be sent to client
-					$response_text = json_encode(array('type'=>'usermsg', 'username'=>$user_username, 'message'=>$user_message, 'randomID'=>$random_id, 'target'=>$tst_msg->target));
-					
-					send_message_both($response_text, $tst_msg->target, $user_username); //send data
-					
-					insertMessage($user["id"],getUserID($tst_msg->target),$user_message,false,0, null);
-				} else {
-					$currentGroup = null;
-					$users_in_group = array();
-					
-					for($i=0;$i<count($groups);$i++){
-						if($groups[$i]["id"]==$tst_msg->target){
-							$currentGroup = $groups[$i];
-							$users_in_group = $currentGroup["users"];
-						}
-					}
-
-					//checkea que el usuario que manda el msj este en el grupo
-					$is_in_group = false;
-					for($i=0;$i<count($users_in_group);$i++){
-						if($users_in_group[$i]==$user_username){
-							$is_in_group=true;
-							break;
-						}
-					}
-
-					if(!$is_in_group){
-						return;
-					}
-					
-					for($i=0;$i<count($users_in_group);$i++){
-						$json = array('type'=>'usermsg', 'username'=>$user_username, 'message'=>$user_message, 'randomID'=>$random_id, 'target'=>$tst_msg->target);
-						send_message(json_encode($json),$users_in_group[$i]);
-					}
-					
-					insertMessage($user["id"],$tst_msg->target,$user_message,true,0, null);
-				}
-				break;
 				
 			case "file":
 				$user_username = $user["username"];//sender username

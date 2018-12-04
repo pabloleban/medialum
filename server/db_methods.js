@@ -1,3 +1,5 @@
+const utils = require('./server/utils');
+
 exports.getAllUsersData = () => {
 	let sql = "select * from usuarios;";
 	return database.query(sql).then(result => {
@@ -455,7 +457,7 @@ exports.getHistorial = (user_id, talking_with, from, isGroup) => {
 }
 
 exports.clearMessages = (user_id, entity) => {
-	if(isGroup(entity)){
+	if(utils.isGroup(entity)){
 		entity = getGroupID(entity);
 		
 		let sql = `SELECT * FROM messages_groups_clear
@@ -506,7 +508,7 @@ exports.clearMessages = (user_id, entity) => {
 }
 
 exports.clearSingleMessage = (user_id, entity, date, offset) => {	
-	if(isGroup(entity)){
+	if(utils.isGroup(entity)){
 		entity = getGroupID(entity);
 		
 		let sql = `select * from messages_groups
