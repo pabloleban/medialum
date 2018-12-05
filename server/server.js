@@ -7,33 +7,32 @@ const db_methods = require('./server/db_methods')
 const utils = require('./server/utils')
 
 const sockets = [];
-const allUserData = []
+const allUserData = await db_methods.getAllUsersData();
+const groups = await db_methods.getGroups();
 
 io.on('connection', function(socket){
 	console.log('a user connected');
 	
-	socket.on('register', data => {
-		db_methods.login(data.username, data.password).then(result => {
+	socket.on('register', registration => {
+		db_methods.login(registration.username, registration.password).then(result => {
 			console.log('login successful');
-
-			//get all user roles
-			const roles = await db_methods.getRolesByID(result.id);
 			
 			const user = { 
 				username: result.username,
-				state: data.state ? data.state : "online",
+				state: registration.state ? registration.state : "online",
 				id: result.id, 
 				socket
 			}
+
 			socket.user = user;
 			sockets.push(user);
 
-			//get all users data (except users without the required roles)
+			//get all users data of user (except users without the required roles)
 			const usersProm = db_methods.getAllUsersDataOfUser(socket.user.username).then(result => {
 				socket.emit('all-users', result)
 			}, () => { console.error("Cannot retrieve all users.") })
 			
-			//get all groups
+			//get all groups of user
 			const groupsProm = db_methods.getGroupListByUsername(socket.user.username).then(result => {
 				socket.emit('group-list', result);
 			}, () => { console.error("Cannot retrieve group list.") })
@@ -59,10 +58,11 @@ io.on('connection', function(socket){
 			socket.on('message', data => {
 				data.message = utils.escapeHtml(data.message.trim())
 				
+				const senderUser = allUserData.find(d => d.username === data.target);
+
 				if(!utils.isGroup(data.target)){
 
 					const targetUser = allUserData.find(d => d.username === data.target);
-					const senderUser = allUserData.find(d => d.username === data.target);
 
 					if(utils.checkRoles(targetUser.roles, senderUser.roles)){
 						//prepare data to be sent to client
@@ -87,7 +87,9 @@ io.on('connection', function(socket){
 						db_methods.insertMessage(senderUser.id, targetUser.id, newMessage.message, false, 0, null);
 					}
 				} else {
-					$currentGroup = null;sam
+					const targetGroup = groups.find(g => g.id == utils.getGroupID(data.target))
+
+					$currentGroup = null;
 					$users_in_group = array();
 					
 					for($i=0;$i<count($groups);$i++){
@@ -768,12 +770,6 @@ function unique_multidim_array($array, $key) {
 		}
 	}
 	return $temp_array;
-}
-
-function getGroupID($group){
-	$group_id = str_replace(GROUPS_PREFIX,"",$group);
-	$group_id = intval($group_id);
-	return $group_id;
 }
 
 // start the server

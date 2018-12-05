@@ -1,13 +1,16 @@
 const utils = require('./server/utils');
 
-exports.getAllUsersData = () => {
+exports.getAllUsersData = async () => {
 	let sql = "select * from usuarios;";
-	return database.query(sql).then(result => {
+	database.query(sql).then(result => {
 		let data = [];
 		result.forEach(r => {
 			delete r.password;
 			data[r.username] = r;
 		})
+
+		const roles = await db_methods.getAllRoles();
+
 		return data;
 	});
 }
@@ -143,13 +146,15 @@ exports.getEntitiesOrder = user_id => {
 	});
 }
 
-exports.getGroups = () => {
-	let sql = "SELECT * FROM groups";
-
-	let allgroups = [];
+exports.getGroups = async () => {
+	let sql = `SELECT g.id, m.user_id, g.name 
+				FROM groups g, groups_members m, usuarios u
+				where g.id = m.group_id
+				and u.id = m.user_id
+				and u.habilitado = 1`;
 
 	return database.query(sql).then(result => {
-		result.map(r => {
+		result.forEach(g => {
 			allgroups.push({id: GROUPS_PREFIX+r.id, users: [], name: r.name});
 			
 			sql = `SELECT u.username FROM groups_members g, usuarios u WHERE g.group_id = ${r.id} and g.user_id = u.id and u.habilitado = 1`;
@@ -175,16 +180,12 @@ exports.getGroups = () => {
 }
 
 exports.getAllRoles = () => {
-	let roles = [];
-	
-	let sql = "SELECT * FROM roles";
-	return database.query(sql).then(result => {
-		result.map(r => {
-			roles.push({id: r.id, rol_name: r.nombre});
-		})
-		
-		return roles;
-	});
+	new Promise((resolve, reject) => {
+		let sql = "SELECT user_id, rol_id FROM roles_usuarios order by user_id, id";
+		database.query(sql).then(result => {		
+			resolve(result);
+		});
+	})
 }
 
 exports.getRolesByID = user_id => {

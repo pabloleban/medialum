@@ -14,6 +14,11 @@ exports.isGroup = id => {
 	return id.includes(GROUPS_PREFIX)
 }
 
+exports.getGroupID = id => {
+	var groupID = id.replace(GROUPS_PREFIX,'');
+	return groupID;
+}
+
 exports.rolesCheck = (rolesA, rolesB) => {
 	return rolesA.includes(rolesB[0]) && rolesB.includes(rolesA[0])
 }
