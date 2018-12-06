@@ -6,6 +6,9 @@ const database = new Database({host: "localhost", user: "root", password: ""});
 const db_methods = require('./server/db_methods')
 const utils = require('./server/utils')
 
+const { promisify } = require('util');
+const sizeOf = promisify(require('image-size'));
+
 const sockets = [];
 const allUserData = await db_methods.getAllUsersData();
 const groups = await db_methods.getGroups();
@@ -76,50 +79,109 @@ io.on('connection', function(socket){
 						
 						//send message to all sender instances
 						sockets.filter( s => s.username === senderUser.username).forEach(s => {
-							socket.emit("usrmsg", newMessage);
+							socket.emit("usermsg", newMessage);
 						})
 
 						//send message to all target instances
 						sockets.filter( s => s.username === targetUser.username).forEach(s => {
-							s.emit("usrmsg", newMessage)
+							s.emit("usermsg", newMessage)
 						})
 						
 						db_methods.insertMessage(senderUser.id, targetUser.id, newMessage.message, false, 0, null);
 					}
 				} else {
-					const targetGroup = groups.find(g => g.id == utils.getGroupID(data.target))
-
-					$currentGroup = null;
-					$users_in_group = array();
-					
-					for($i=0;$i<count($groups);$i++){
-						if($groups[$i]["id"]==$tst_msg->target){
-							$currentGroup = $groups[$i];
-							$users_in_group = $currentGroup["users"];
-						}
-					}
+					const targetGroup = groups.find(g => g.id == data.target)
 
 					//checkea que el usuario que manda el msj este en el grupo
-					$is_in_group = false;
-					for($i=0;$i<count($users_in_group);$i++){
-						if($users_in_group[$i]==$user_username){
-							$is_in_group=true;
-							break;
-						}
-					}
-
-					if(!$is_in_group){
+					if(!targetGroup || !targetGroup.users.find(u => u.id == senderUser.id)){
 						return;
 					}
 					
-					for($i=0;$i<count($users_in_group);$i++){
-						$json = array('type'=>'usermsg', 'username'=>$user_username, 'message'=>$user_message, 'randomID'=>$random_id, 'target'=>$tst_msg->target);
-						send_message(json_encode($json),$users_in_group[$i]);
-					}
+					targetGroup.users.forEach(u => {
+						const newMessage = {
+							type: "message",
+							username: senderUser.username,
+							message: data.message,
+							randomID: data.randomID,
+							target: targetGroup.id
+						}
+
+						//send message to all sender instances
+						sockets.filter( s => s.id == u).forEach(s => {
+							socket.emit("usermsg", newMessage);
+						})
+					})
 					
-					insertMessage($user["id"],$tst_msg->target,$user_message,true,0, null);
+					db_methods.insertMessage(senderUser.id, targetGroup.id, data.message, true, 0, null);
 				}	
 			})
+		})
+
+		socket.on("file", data => {
+			data.file = utils.escapeQuotes(data.file); //message text
+
+			const filesize = await sizeOf(data.file);
+			data.data = JSON.stringify(filesize);
+
+			if(!utils.isGroup(data.target)){
+
+				const targetUser = allUserData.find(d => d.username === data.target);
+
+				//prepare data to be sent to client
+				const newMessage = {
+					type: "file", 
+					username: senderUser.username, 
+					message: data.file, 
+					randomID: data.randomID, 
+					target: targetUser.target,
+					data: data.data
+				};
+				
+				//send message to all sender instances
+				sockets.filter( s => s.username === senderUser.username).forEach(s => {
+					socket.emit("usermsg", newMessage);
+				})
+
+				//send message to all target instances
+				sockets.filter( s => s.username === targetUser.username).forEach(s => {
+					s.emit("usermsg", newMessage)
+				})
+				
+				db_methods.insertMessage(senderUser.id, targetUser.id, data.file, false, 1, data.data);
+			} else {
+				//group
+				const targetGroup = groups.find(g => g.id == data.target)
+				
+				//checkea que el usuario que manda el msj este en el grupo
+				if(!targetGroup || !targetGroup.users.find(u => u.id == senderUser.id)){
+					return;
+				}
+				
+				targetGroup.users.forEach(u => {
+					const newMessage = {
+						type: "file", 
+						username: senderUser.username, 
+						message: data.file, 
+						randomID: data.randomID, 
+						target: targetUser.target,
+						data: data.data
+					}
+
+					//send message to all sender instances
+					sockets.filter( s => s.id == u).forEach(s => {
+						socket.emit("usermsg", newMessage);
+					})
+				})
+			
+				if($is_in_group){
+					for($i=0;$i<count($users_in_group);$i++){
+						$json = json_encode(array('type'=>'file', 'username'=> $user_username, 'message'=>$file, 'randomID'=>$random_id, 'target'=>$target, 'data' => json_encode($filedata)));
+						send_message($json, $users_in_group[$i]);
+					}
+				}
+				
+				insertMessage($user["id"], $target, $file, true, 1, json_encode($filedata));
+			}	
 		})
 	})
 
@@ -137,38 +199,12 @@ http.listen(3000, function(){
     console.log('listening on *:3000');
 });
 
-// when a client sends data to the server
-function wsOnMessage($clientID, $message, $messageLength, $binary) {
-	global $Server;
-	global $clients;
-	global $groups;
-	global $allUsersData;
-	
-	$tst_msg = json_decode($message); //json decode
-
-	if (isset($tst_msg->type)){
-		$type = $tst_msg->type;
-		
-		$user = null;
-		
-		if($type!=="register" && $type!=="update-ready"){
-			$user = getUsuarioByClientId($clientID);
-			
-			if($user==null){
-				sendError($clientID,"El usuario es null cuando type=".$type,true);
-				return;
-			}
-		}
 		
 		switch($type){
 		    case "ping":
 		        send_message(json_encode(array("type"=>"pong","when"=>$tst_msg->when)),$user["username"]);
 		        break;
-		    
-			case "message":
-
-				
-				
+		    				
 			case "file":
 				$user_username = $user["username"];//sender username
 				$file = htmlspecialchars($tst_msg->file); //message text
@@ -214,41 +250,6 @@ function wsOnMessage($clientID, $message, $messageLength, $binary) {
 				}
 				
 				break;
-			
-			case "register":
-				$user_username = $tst_msg->username;
-				$user_password = $tst_msg->password;
-				$user_state = $tst_msg->state;
-			
-				if(login($user_username,$user_password)){
-					
-					$this_user_id = getUserID($user_username);
-					
-					$roles = getRolesByID($this_user_id);
-					
-					$user_data=array('username'=>$user_username,'state'=>$user_state,'id'=>$this_user_id, 'roles'=>$roles);
-					
-					//agrega usuario	
-					$clients[] = array("id"=>$clientID,"user"=>$user_data);
-
-					send_message(json_encode(array("type"=>"registration_success")),$user_username);
-					
-					send_message(json_encode(array('type'=>'all-users',"data"=>getAllUsersDataOfUser($user_username))),$user_username);
-					
-					send_message(json_encode(getGroupListByUsername($user_username)),$user_username);
-					
-					refreshUserList($roles);
-					
-					send_message(json_encode(array("type"=>"order","users"=>getEntitiesOrder($this_user_id))),$user_username);
-					send_message(json_encode(array("type"=>"unread_messages","messages"=>getUnreadMessages($this_user_id))),$user_username);
-					
-					$Server->log("Se conecto ".$user_username." (clientID: ".$clientID.")");
-					break;
-				} else {
-					sendError($clientID,"Se loguearon con un usuario incorrecto.",false);
-					$Server->wsSend($clientID, json_encode(array("type"=>"invalid_username")));
-					return;
-				}
 			
 			case "state":
 				$username = $user["username"];

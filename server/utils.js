@@ -10,6 +10,10 @@ exports.escapeHtml = text => {
 	return text.replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
+exports.escapeQuotes = text => {
+	return text.replace('"', '\"').replace('\'', '\\\'');
+}
+
 exports.isGroup = id => {
 	return id.includes(GROUPS_PREFIX)
 }

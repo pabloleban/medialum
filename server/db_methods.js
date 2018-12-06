@@ -147,36 +147,29 @@ exports.getEntitiesOrder = user_id => {
 }
 
 exports.getGroups = async () => {
-	let sql = `SELECT g.id, m.user_id, g.name 
-				FROM groups g, groups_members m, usuarios u
-				where g.id = m.group_id
-				and u.id = m.user_id
-				and u.habilitado = 1`;
+	new Promise((resolve, reject) => {
+		let sql = `SELECT g.id, m.user_id, g.name 
+		FROM groups g, groups_members m, usuarios u
+		where g.id = m.group_id
+		and u.id = m.user_id
+		and u.habilitado = 1`;
 
-	return database.query(sql).then(result => {
-		result.forEach(g => {
-			allgroups.push({id: GROUPS_PREFIX+r.id, users: [], name: r.name});
-			
-			sql = `SELECT u.username FROM groups_members g, usuarios u WHERE g.group_id = ${r.id} and g.user_id = u.id and u.habilitado = 1`;
-			
-			database.query(sql).then(result => {
-				if (result.length > 0) {
-					let group_index;
-					allgroups.map((g, index) => {
-						if(g.id==GROUPS_PREFIX+r.id){
-							group_index = index;
-						}
-					})
-						
-					result.map(r => {
-						allgroups[group_index].users.push(r.username);
-					})
+		let allgroups = [];
+
+		database.query(sql).then(result => {
+			result.forEach(g => {
+				let group = allgroups.find(ag => ag.id === GROUPS_PREFIX+g.id);
+				if(!group){
+					allgroups.push({ id: GROUPS_PREFIX+g.id, users: [], name: g.name })
+					group = allgroups.find(ag => ag.id === GROUPS_PREFIX+g.id);
 				}
-			})
-		})
 
-		return allgroups;
-	});
+				group.users.push(g.user_id)
+			})
+
+			resolve(allgroups);
+		});
+	})
 }
 
 exports.getAllRoles = () => {
