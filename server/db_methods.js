@@ -274,19 +274,19 @@ exports.login = (username, password) => {
 }
 
 //crea grupo y devuelve el id del grupo creado
-exports.createGroup = (usersArray, groupName) => {
-	let sql = `INSERT into groups (name, date) values ('${groupName}', NOW());`;
+exports.createGroup = async (newGroup) => {
+	let sql = `INSERT into groups (name, date) values ('${newGroup.name}', NOW());`;
 	
 	return database.query(sql).then(result => {
 		let insertedGroupId = result.insertId;	
 
-		usersArray.map(u => {
+		newGroup.users.map(u => {
 			sql = `INSERT into groups_members (group_id, user_id, date) 
 					values (${insertedGroupId},${getUserID(u)},NOW());`
 			database.query(sql);
 		})
 
-		return insertedGroupId;
+		return GROUP_PREFIX+insertedGroupId;
 	});
 	
 	

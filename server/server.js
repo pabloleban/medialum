@@ -16,19 +16,18 @@ const groups = await db_methods.getGroups();
 io.on('connection', function(socket){
 	console.log('a user connected');
 	
+	sockets.push(socket);
+
 	socket.on('register', registration => {
 		db_methods.login(registration.username, registration.password).then(result => {
 			console.log('login successful');
 			
 			const user = { 
-				username: result.username,
 				state: registration.state ? registration.state : "online",
 				id: result.id, 
-				socket
 			}
 
 			socket.user = user;
-			sockets.push(user);
 
 			//get all users data of user (except users without the required roles)
 			const usersProm = db_methods.getAllUsersDataOfUser(socket.user.username).then(result => {
@@ -78,12 +77,12 @@ io.on('connection', function(socket){
 						};
 						
 						//send message to all sender instances
-						sockets.filter( s => s.username === senderUser.username).forEach(s => {
+						sockets.filter( s => s.user.username === senderUser.username).forEach(s => {
 							socket.emit("usermsg", newMessage);
 						})
 
 						//send message to all target instances
-						sockets.filter( s => s.username === targetUser.username).forEach(s => {
+						sockets.filter( s => s.user.username === targetUser.username).forEach(s => {
 							s.emit("usermsg", newMessage)
 						})
 						
@@ -138,12 +137,12 @@ io.on('connection', function(socket){
 				};
 				
 				//send message to all sender instances
-				sockets.filter( s => s.username === senderUser.username).forEach(s => {
+				sockets.filter( s => s.user.username === senderUser.username).forEach(s => {
 					socket.emit("usermsg", newMessage);
 				})
 
 				//send message to all target instances
-				sockets.filter( s => s.username === targetUser.username).forEach(s => {
+				sockets.filter( s => s.user.username === targetUser.username).forEach(s => {
 					s.emit("usermsg", newMessage)
 				})
 				
@@ -168,31 +167,183 @@ io.on('connection', function(socket){
 					}
 
 					//send message to all sender instances
-					sockets.filter( s => s.id == u).forEach(s => {
+					sockets.filter( s => s.user.id == u).forEach(s => {
 						socket.emit("usermsg", newMessage);
 					})
 				})
+				
+				db_methods.insertMessage(senderUser.id, targetGroup.id, data.file, true, 1, data.data);
+			}	
+		})
+
+		socket.on("state", data => {
+			if(!["online","away","busy"].includes(data.state)){
+				return;
+			}
+
+			sockets.forEach(s => {
+				if(s.user && s.user.id == senderUser.id){
+					s.user.state = data.state
+				}
+			})
 			
-				if($is_in_group){
-					for($i=0;$i<count($users_in_group);$i++){
-						$json = json_encode(array('type'=>'file', 'username'=> $user_username, 'message'=>$file, 'randomID'=>$random_id, 'target'=>$target, 'data' => json_encode($filedata)));
-						send_message($json, $users_in_group[$i]);
-					}
+			const stateChange = {
+				username: senderUser.username,
+				state: data.state
+			}
+			
+			sockets.forEach(s => {
+				if(utils.rolesCheck(senderUser.user.roles, s.roles)){
+					s.emit('updatestate', stateChange)
+				}
+			})
+		})
+
+		socket.on('updatepic', group_id => {
+			let entity = group_id ? group_id : senderUser.username;
+			
+			sockets.forEach(s => {
+				if(utils.rolesCheck(senderUser.user.roles, s.roles)){
+					s.emit('updatepic', entiy)
+				}
+			})
+		})
+
+		socket.on('updateuser', data => {
+			editUser = allUserData.find(u => u.id == senderUser.id)
+
+			editUser.apodo = data.apodo
+			editUser.celular = data.celular
+			editUser.nombre = data.nombre
+			editUser.email = data.email
+			editUser.nick = data.nick
+			
+			const userUpdated = {
+				username: senderUser.username,
+				apodo: editUser.apodo,
+				nombre: editUser.nombre,
+				email: editUser.email,
+				nick: editUser.nick
+			}
+
+			sockets.forEach(s => {
+				if(utils.rolesCheck(senderUser.user.roles, s.roles)){
+					s.emit('updateuser', userUpdated)
+				}
+			})
+		})
+
+		socket.on("update-ready", update => {
+			if(update.mode && update.version && ["light","soft","hard"].includes(update.mode)){
+				io.emit("medialum-update", update)
+			}
+		})
+
+		socket.on("typing", data => {
+			sockets.filter(s => {s.user.username === data.target}).forEach(s => {
+				s.emit("typing", {username: senderUser.username, at: data.target})
+			})
+		})
+
+		socket.on('create-group', newGroup => {
+			//nombre default del grupo
+			newGroup.name = "Chat grupal";
+					
+			//limpia si hay repetidos
+			newGroup.users = [...new Set(newGroup.users)]
+	
+			//pone primero al usuario que creo el grupo
+			newGroup.users = newGroup.users.filter(u => u !== senderUser.id);
+			newGroup.users.unshift(senderUser.id);
+			
+			newGroup.id = await db_methods.createGroup(newGroup);
+			
+			newGroup.users.forEach((u, i) => {
+				if(i == 0){
+					insertStatus(newGroup.id, {type: "status", status_type: "group_created", by: senderUser.username });
+				} else {
+					insertStatus(newGroup.id, {type: "status", status_type: "group_added", who: u, by: senderUser.username });
+				}
+			});
+			
+			//agrega el nuevo grupo al objeto de grupos
+			groups.push(newGroup);
+			
+			//loguea
+			console.log(`Se creo un grupo con ${groups.users.length} usuarios`);
+			
+			newGroup.users.forEach(u => {
+				sockets.filter(s => s.user.username === u).forEach(s => {
+					s.emit('new-group', newGroup)
+				})
+			})
+		})
+
+		socket.on("add-to-group", data => {			
+			const targetGroup = groups.find(g => g.id == data.id)
+				
+			//el usuario que agrega gente tiene que estar en el grupo
+			if(!targetGroup || !targetGroup.users.find(u => u.id == senderUser.id)){
+				return;
+			}
+			
+			//usuarios nuevos a agregar
+			$newUsers = $tst_msg->users;
+			
+			//todos los usuarios viejos antes de agregar
+			$oldUsers = $groups[$group_index]["users"];
+			
+			$addedUsers = array();
+			
+			//agrega los usuarios al grupo
+			for($i=0;$i<count($newUsers);$i++){
+				if(!in_array($newUsers[$i],$groups[$group_index]["users"])){
+					array_push($groups[$group_index]["users"],$newUsers[$i]);
+					array_push($addedUsers,$newUsers[$i]);
+					//agrego usuario a la db
+					addMemberToGroup(getUserID($newUsers[$i]),getGroupID($groups[$group_index]["id"]));
+					insertStatus(getGroupID($groups[$group_index]["id"]),json_encode(array("type"=>"status","status-type"=>"group_added","who"=>$newUsers[$i],"by"=>$user["username"])));
+				}
+			}
+			
+			if(count($addedUsers)>0){
+				
+				$Server->log("Se agregaron usuarios al grupo (".count($addedUsers).")");
+				
+				//le manda a los viejos un msj con new-users-group
+				for($i=0; $i<count($oldUsers); $i++){
+					$json = array("type"=>"new-users-group","users"=>$addedUsers,"id"=>$tst_msg->id,"by"=>$user["username"]);
+					send_message(json_encode($json),$oldUsers[$i]);
 				}
 				
-				insertMessage($user["id"], $target, $file, true, 1, json_encode($filedata));
-			}	
+				//le manda a los nuevos un msj con new-group
+				for($i=0; $i<count($newUsers); $i++){
+					$json = array("type"=>"new-users-group","users"=>$groups[$group_index]["users"],"id"=>$tst_msg->id,"name"=>$groups[$group_index]["name"],"newusers"=>$addedUsers,"by"=>$user["username"]);
+					send_message(json_encode($json),$newUsers[$i]);
+				}
+			}
+			
+			break;
 		})
 	})
 
     socket.on('disconnect', () => {
-		if(socket.id && sockets[socket.id]){
-			delete sockets[socket.id];
-			console.log('logged out '+sockets.username+' disconnected');
+		const socketIndex = sockets.findIndex(s => s.id === socket.id)
+
+		if(socketIndex > -1) {
+			sockets.slice(socketIndex, 1)
+
+			if(sockets.findIndex(s => s.user.id === socket.user.id) <= -1){
+				sockets.forEach(s => {
+					if(s.user && utils.rolesCheck(senderUser.user.roles, s.roles)){
+						s.emit('disconnected', socket.user.username)
+					}
+				})
+			}
 		}
 
 		console.log('user disconnected');
-    });
+	});
 });
 
 http.listen(3000, function(){
@@ -204,207 +355,13 @@ http.listen(3000, function(){
 		    case "ping":
 		        send_message(json_encode(array("type"=>"pong","when"=>$tst_msg->when)),$user["username"]);
 		        break;
-		    				
-			case "file":
-				$user_username = $user["username"];//sender username
-				$file = htmlspecialchars($tst_msg->file); //message text
-				$target = $tst_msg->target;
-				
-				$random_id = $tst_msg->randomID;
-
-				$filedata = getImageData($file);
-				unset($filedata[3]);
-				if(!isGroup($target)){
-					//not group
-					$response_text = json_encode(array('type'=>'file', 'username'=>$user_username, 'message'=>$file, 'randomID'=>$random_id, 'target'=>$target,'data' => json_encode($filedata)));
-					send_message_both($response_text, $target, $user_username); //send data
-					
-					insertMessage($user["id"],getUserID($target), $file, false, 1, json_encode($filedata));
-				} else {
-					//group
-					$users_in_group = array();
-					
-					for($i=0;$i<count($groups);$i++){
-						if($groups[$i]["id"] == $target){
-							$users_in_group = $groups[$i]["users"];
-						}
-					}
-					
-					//checkea que el usuario que manda el msj este en el grupo
-					$is_in_group = false;
-					for($i=0;$i<count($users_in_group);$i++){
-						if($users_in_group[$i] == $user_username){
-							$is_in_group = true;
-							break;
-						}
-					}
-					
-					if($is_in_group){
-						for($i=0;$i<count($users_in_group);$i++){
-							$json = json_encode(array('type'=>'file', 'username'=> $user_username, 'message'=>$file, 'randomID'=>$random_id, 'target'=>$target, 'data' => json_encode($filedata)));
-							send_message($json, $users_in_group[$i]);
-						}
-					}
-					
-					insertMessage($user["id"], $target, $file, true, 1, json_encode($filedata));
-				}
-				
-				break;
-			
-			case "state":
-				$username = $user["username"];
-				$state = $tst_msg->state;
-				
-				if (!isset($tst_msg->type)){
-					$state = "online";
-				}
-
-				foreach($clients as $key => $client){
-					if($client["user"]["username"]==$username){
-						$clients[$key]["user"]["state"]=$state;
-					}
-				}
-				
-				$json = array("type"=>"updatestate","username"=>$username, "state"=>$state);
-				send_all_message(json_encode($json),$user["roles"]);
-				break;
-			case "updatepic":
-				$entity = $user["username"];
-				
-				if(isset($tst_msg->group_id)){
-				    $entity = $tst_msg->group_id;
-				}
-				
-				$json = array("type"=>"updatepic","entity"=>$entity);
-				send_all_message(json_encode($json),$user["roles"]);
-				break;
-			
-			case "updateuser":
-			    $user_updated = $tst_msg->username;
-			    $data = $allUsersData[$user_updated];
-			    $removedData = array();
-			    
-			    $removedData["username"] = $data["username"];
-			    $removedData["apodo"] = $data["apodo"];
-			    $removedData["celular"] = $data["celular"];
-			    $removedData["nombre"] = $data["nombre"];
-			    $removedData["email"] = $data["email"];
-			    $removedData["nick"] = $data["nick"];
-			    
-			    send_all_message(json_encode(array("type"=>"updateuser","userdata"=>$removedData)), $user["roles"]);
-				break;
-			
-			case "update-ready":
-			    if(isset($tst_msg->mode) && isset($tst_msg->version) && ( $tst_msg->mode === "light" || $tst_msg->mode === "soft" || $tst_msg->mode === "hard")){
-    				$json = array("type"=>"medialum-update","mode"=>$tst_msg->mode, "version"=>$tst_msg->version);
-    				send_all_message(json_encode($json),null);
-			    }
-				break;
-			case "typing":
-				$username = $user["username"];
-				$target = $tst_msg->target;
-
-				$json = array("type"=>"typing","username"=>$username, "at"=>$target);
-
-				send_message(json_encode($json),$target);
-				
-				break;
+		
 			case "create-group":
-				//nombre default del grupo
-				$default_group_name = "Chat grupal";
 				
-				//limpia si hay repetidos
-				$usersArray = array_unique($tst_msg->users);
-
-				//pone primero al usuario que creo el grupo
-				array_unshift($usersArray,$user["username"]);
-				
-				$created_group_id = createGroup($usersArray,$default_group_name);
-				
-				foreach($usersArray as $key => $u){
-					if($key==0){
-						insertStatus($created_group_id,json_encode(array("type"=>"status","status-type"=>"group_created","by"=>$user["username"])));
-					} else {
-						insertStatus($created_group_id,json_encode(array("type"=>"status","status-type"=>"group_added","who"=>$u,"by"=>$user["username"])));
-					}
-				}
-				
-				//crea grupo en db
-				$new_group_id = GROUPS_PREFIX.$created_group_id;
-				
-				$json = array("type"=>"new-group","users"=>$usersArray,"id"=>$new_group_id,"name"=>$default_group_name);
-				
-				//agrega data al objeto de grupo
-				$groups[] = array("id"=>$json["id"],"users"=>$json["users"],"name"=>$default_group_name);
-				
-				//loguea
-				$Server->log( "Se creo un grupo con ".(count($usersArray))." usuarios");
-				
-				for($i=0; $i<count($usersArray); $i++){
-					//aviso a los agregados
-					send_message(json_encode($json),$usersArray[$i]);
-				}
 				
 				break;
 			case "add-to-group":
-				$group_index;
 				
-				//el usuario que agrega gente tiene que estar en el grupo
-				$encontrado = false;
-				for($i=0; $i<count($groups); $i++){
-					if($groups[$i]["id"]==$tst_msg->id){
-						$group_index = $i;
-						for($j=0;$j<count($groups[$i]["users"]);$j++){
-							if($groups[$i]["users"][$j]==$user["username"]){
-								$encontrado=true;
-								break 2;
-							}
-						}
-					}
-				}
-				
-				if(!$encontrado){
-					return;
-				}
-				//fin checkeo de usuario
-				
-				//usuarios nuevos a agregar
-				$newUsers = $tst_msg->users;
-				
-				//todos los usuarios viejos antes de agregar
-				$oldUsers = $groups[$group_index]["users"];
-				
-				$addedUsers = array();
-				
-				//agrega los usuarios al grupo
-				for($i=0;$i<count($newUsers);$i++){
-					if(!in_array($newUsers[$i],$groups[$group_index]["users"])){
-						array_push($groups[$group_index]["users"],$newUsers[$i]);
-						array_push($addedUsers,$newUsers[$i]);
-						//agrego usuario a la db
-						addMemberToGroup(getUserID($newUsers[$i]),getGroupID($groups[$group_index]["id"]));
-						insertStatus(getGroupID($groups[$group_index]["id"]),json_encode(array("type"=>"status","status-type"=>"group_added","who"=>$newUsers[$i],"by"=>$user["username"])));
-					}
-				}
-				
-				if(count($addedUsers)>0){
-					
-					$Server->log("Se agregaron usuarios al grupo (".count($addedUsers).")");
-					
-					//le manda a los viejos un msj con new-users-group
-					for($i=0; $i<count($oldUsers); $i++){
-						$json = array("type"=>"new-users-group","users"=>$addedUsers,"id"=>$tst_msg->id,"by"=>$user["username"]);
-						send_message(json_encode($json),$oldUsers[$i]);
-					}
-					
-					//le manda a los nuevos un msj con new-group
-					for($i=0; $i<count($newUsers); $i++){
-						$json = array("type"=>"new-users-group","users"=>$groups[$group_index]["users"],"id"=>$tst_msg->id,"name"=>$groups[$group_index]["name"],"newusers"=>$addedUsers,"by"=>$user["username"]);
-						send_message(json_encode($json),$newUsers[$i]);
-					}
-				}
-				
-				break;
 				
 			case "exit-group":
 				$json = array("type"=>"exit-user-group","who"=>$user["username"],"group_id"=>$tst_msg->id);
