@@ -1,37 +1,46 @@
-const utils = require('./server/utils');
+const utils = require('./utils');
+const database = require('./server')
+const constants = require('./constants')
 
 exports.getAllUsersData = async () => {
-	let sql = "select * from usuarios;";
-	database.query(sql).then(result => {
-		let data = [];
-		result.forEach(r => {
-			delete r.password;
-			data[r.username] = r;
-		})
+	return new Promise((resolve, reject) => {
+		let sql = "select * from usuarios;";
+		database.query(sql).then(async result => {
+			let data = [];
+			result.forEach(u => {
+				delete u.password;
+				u.roles = [];
+				data[u.id] = u;
+			})
 
-		const roles = await db_methods.getAllRoles();
+			const roles = await this.getAllRoles();
 
-		return data;
-	});
+			roles.forEach(r => {
+				data[r.user_id].roles.push(r.rol_id)
+			})
+
+			resolve(data);
+		});
+	})
 }
 
-exports.getAllUsersDataOfUser = username => {
-	new Promise ((resolve, reject) => {
+exports.getAllUsersDataOfUser = async id => {
+	return new Promise ((resolve, reject) => {
 		const original_colors = ['FF0000','FF4B4B','FF8585','BD6262','981616','9E8282','9C0000','FF8300','BD6100','FFA547','926739','864501','D6BD00','CAC28A','948621','9EC700','B2CE45','949E6A','556900','316900','63D400','80DC30','81A95E','68B525','23D45B','59CE7E','08E29D','6FD0B1','2B9472','02d2d4','4CD3D4','0070FF','63A8FF','0056C3','91C2FF','2900FF','180098','9B8BEF','5939FF','BE39FF','AB00FF','8600C7','B77BD4','FF00E9','FF76F3','960089','B97AB4','FF0068','FF79B0','A00042','FFA700'];
 		
 		let colors = [...original_colors]
 		
 		let sql = `select u.* from usuarios u where u.id in
 					(select user_id from roles_usuarios where rol_id in
-						(select rol_id from roles_usuarios where user_id in
-							(select u2.id from usuarios u2 where u2.username= '${username}'))) and u.habilitado = 1;`;
+						(select rol_id from roles_usuarios where user_id = '${id}')) and u.habilitado = 1;`;
+
+		let usersData = [];
 		
 		database.query(sql).then(result => {
 			result.forEach(r => {
 				delete r.password;
 				delete r.recover_user_code;
 				delete r.medialum_go_sound;
-				delete r.id;
 				delete r.habilitado;
 				delete r.ver_desconectados;
 				delete r.sn_mensaje;
@@ -42,9 +51,7 @@ exports.getAllUsersDataOfUser = username => {
 					colors = [...original_colors]
 				}
 			
-				let hash = parseInt((username + '').replace(/[^a-f0-9]/gi, ''), 16);
-				
-				let userNumber = hash % colors.length;
+				let userNumber = r.id % colors.length;
 					
 				r.color = colors[userNumber];
 					
@@ -53,7 +60,7 @@ exports.getAllUsersDataOfUser = username => {
 				if(r.nacimiento){
 					let date = new Date(r.nacimiento);
 				
-					let meses = array("Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre");
+					let meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 				
 					let dia = date.getDate();
 					let mes = date.getMonth();
@@ -64,7 +71,7 @@ exports.getAllUsersDataOfUser = username => {
 				r.state = "offline";
 				r.typing = false;
 					
-				usersData[r.username] = r;
+				usersData.push(r);
 			});
 			
 			resolve(usersData);
@@ -93,7 +100,7 @@ exports.getUsernameByID = id => {
 }
 
 exports.getUnreadMessages = user_id => {
-	let sql = `select count(group_id_to) notifications, concat('${GROUPS_PREFIX}',mg.group_id_to) entity_from
+	let sql = `select count(group_id_to) notifications, concat('${constants.GROUPS_PREFIX}',mg.group_id_to) entity_from
 			from messages_groups_seen mgs, messages_groups mg
 			where mgs.user_id = ${user_id}
 			and mgs.seen = 0
@@ -120,7 +127,7 @@ exports.getUnreadMessages = user_id => {
 
 exports.getEntitiesOrder = user_id => {
 	let sql = `select us
-			from (select concat('${GROUPS_PREFIX}',group_id_to) us, max(gm.date) fec
+			from (select concat('${constants.GROUPS_PREFIX}',group_id_to) us, max(gm.date) fec
 			           from groups_members mg, messages_groups gm
 			           where group_id_to = group_id 
 			             and ${user_id} in (user_id, user_id_from)
@@ -147,7 +154,7 @@ exports.getEntitiesOrder = user_id => {
 }
 
 exports.getGroups = async () => {
-	new Promise((resolve, reject) => {
+	return new Promise((resolve, reject) => {
 		let sql = `SELECT g.id, m.user_id, g.name 
 		FROM groups g, groups_members m, usuarios u
 		where g.id = m.group_id
@@ -158,10 +165,10 @@ exports.getGroups = async () => {
 
 		database.query(sql).then(result => {
 			result.forEach(g => {
-				let group = allgroups.find(ag => ag.id === GROUPS_PREFIX+g.id);
+				let group = allgroups.find(ag => ag.id === constants.GROUPS_PREFIX+g.id);
 				if(!group){
-					allgroups.push({ id: GROUPS_PREFIX+g.id, users: [], name: g.name })
-					group = allgroups.find(ag => ag.id === GROUPS_PREFIX+g.id);
+					allgroups.push({ id: constants.GROUPS_PREFIX+g.id, users: [], name: g.name })
+					group = allgroups.find(ag => ag.id === constants.GROUPS_PREFIX+g.id);
 				}
 
 				group.users.push(g.user_id)
@@ -173,7 +180,7 @@ exports.getGroups = async () => {
 }
 
 exports.getAllRoles = () => {
-	new Promise((resolve, reject) => {
+	return new Promise((resolve, reject) => {
 		let sql = "SELECT user_id, rol_id FROM roles_usuarios order by user_id, id";
 		database.query(sql).then(result => {		
 			resolve(result);
@@ -182,7 +189,7 @@ exports.getAllRoles = () => {
 }
 
 exports.getRolesByID = user_id => {
-	new Promise ((resolve, reject) => {
+	return new Promise ((resolve, reject) => {
 		let roles = []
 	
 		let sql = `SELECT * FROM roles_usuarios where user_id = ${user_id};`
@@ -205,13 +212,13 @@ exports.insertMessage = (user_from, entity_id, message, is_group, type, data) =>
 
 	let sql;
 	
-	let message = medialumEncrypt(message);
+	message = utils.medialumEncrypt(message);
 
 	if(!is_group){
 		sql = `INSERT into messages_users 
 				(user_id_from, user_id_to, message, date, type, data) 
 				values 
-				(${user_from},${entity_id},'${message}', NOW(), ${type}, '${$data}')`;
+				(${user_from},${entity_id},'${message}', NOW(), ${type}, '${data}')`;
 		
 		database.query(sql);
 	} else {
@@ -244,7 +251,7 @@ exports.insertMessage = (user_from, entity_id, message, is_group, type, data) =>
 }
 
 exports.insertStatus = (group_id, status_msg) => {
-	let message = medialumEncrypt(status_msg);
+	let message = utils.medialumEncrypt(status_msg);
 	
 	let sql = `INSERT into messages_groups 
 				(user_id_from, group_id_to, message, date, type) 
@@ -361,44 +368,46 @@ exports.getHistorial = (user_id, talking_with, from, isGroup) => {
 	let promise = null;
 
 	const retrieveHistorial = (sql) => {
-		return database.query(sql).then(result => {
-			if(result.length > 0){
-				let historial = [];
-			
-				result.forEach(r => {
-					let type = "";
-					switch(let.type){
-						case 0:
-							type = "usermsg";
-							break;
-						case 1:
-							type = "file";
-							break;
-						case 2:
-							type = "status";
-							break;
-						case 3:
-							type = "survey";
-							break;
-						default:
-							type = "usermsg";
-							break;
-					}
-					
-					historial.push({
-						type, 
-						username: r.user_from,
-						message: medialumDecrypt(r.message),
-						target: r.target,
-						date: r.date,
-						data: r.data
-					});
-				})
+		return new Promise((resolve,reject) => {
+			database.query(sql).then(result => {
+				if(result.length > 0){
+					let historial = [];
 				
-				return $historial;
-			} else {
-				return false;
-			}
+					result.forEach(r => {
+						let type = "";
+						switch(r.type){
+							case 0:
+								type = "usermsg";
+								break;
+							case 1:
+								type = "file";
+								break;
+							case 2:
+								type = "status";
+								break;
+							case 3:
+								type = "survey";
+								break;
+							default:
+								type = "usermsg";
+								break;
+						}
+						
+						historial.push({
+							type, 
+							from: r.user_from,
+							message: utils.medialumDecrypt(r.message),
+							target: r.target,
+							date: r.date,
+							data: r.data
+						});
+					})
+					
+					resolve(historial);
+				} else {
+					resolve(false);
+				}
+			})
 		});
 	}
 
@@ -418,7 +427,7 @@ exports.getHistorial = (user_id, talking_with, from, isGroup) => {
 				date = "2000-06-09 00:00:00"
 			}
 
-			return `SELECT mg.*, concat('${GROUPS_PREFIX}',mg.group_id_to) target, u.username user_from
+			return `SELECT mg.*, concat('${constants.GROUPS_PREFIX}',mg.group_id_to) target, u.id user_from
 			FROM groups_members gm, messages_groups mg 
 			LEFT JOIN usuarios u
 			ON mg.user_id_from = u.id 
@@ -435,16 +444,16 @@ exports.getHistorial = (user_id, talking_with, from, isGroup) => {
 
 		return retrieveHistorial(sql);
 	} else {
-		sql = `SELECT uf.username user_from, ut.username target, mu.*
+		sql = `SELECT uf.id user_from, ut.id target, mu.*
 				FROM messages_users mu, usuarios uf, usuarios ut
-				WHERE ((mu.user_id_from = ".$user_id." and mu.user_id_to = ".$talking_with." and mu.removed_user_from = 0) OR
-				       (mu.user_id_to = ".$user_id." and mu.user_id_from = ".$talking_with." and mu.removed_user_to = 0))
+				WHERE ((mu.user_id_from = ${user_id} and mu.user_id_to = ${talking_with} and mu.removed_user_from = 0) OR
+				       (mu.user_id_to = ${user_id} and mu.user_id_from = ${talking_with} and mu.removed_user_to = 0))
 				and uf.id  = mu.user_id_from
 				and ut.id = mu.user_id_to
 				AND uf.habilitado = 1
 				AND ut.habilitado = 1
 				ORDER BY mu.id desc
-				LIMIT ".$from.",".$messages_per_page.";`
+				LIMIT ${from}, ${messages_per_page};`
 			
 		return retrieveHistorial(sql);
 	}
@@ -583,10 +592,10 @@ exports.checkSurveyVote = (user_id, survey_id) => {
 	});
 	
 	//se fija si el usuario pertenece al grupo donde se hizo la survey
-	let sql = `SELECT * from 
-					(SELECT * from groups_members 
-					where group_id = (SELECT group_id FROM surveys where id = ${survey_id})) t 
-				where t.user_id = ${user_id}`;
+	sql = `SELECT * from 
+				(SELECT * from groups_members 
+				where group_id = (SELECT group_id FROM surveys where id = ${survey_id})) t 
+			where t.user_id = ${user_id}`;
 
 	const userInGroup = new Promise((resolve, reject) => { 
 		database.query(sql).then(result => {

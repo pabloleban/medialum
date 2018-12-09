@@ -3,11 +3,17 @@ const mysql = require('mysql');
 class Database {
     constructor(config) {
         this.connection = mysql.createConnection(config);
+    }
 
-        this.connection.connect(function(err) {
-            if (err) throw err;
-            console.log("MySQL Connected!");
-        });
+    async connect() {
+        return new Promise((resolve, reject) => {
+            this.connection.connect(err => {
+                if (err) reject(err);
+                console.log("MySQL Connected!");
+                module.exports = this.connection
+                resolve();
+            });
+        })
     }
 
     query(sql, args) {

@@ -1,5 +1,9 @@
 const GROUPS_PREFIX = "_gr_";
 
+module.exports = {
+    GROUPS_PREFIX
+}
+
 // if(ENTORNO==="produccion"){
 // 	//ip de produccion
 // 	define("SERVER_IP","localhost");

@@ -1,3 +1,5 @@
+const constants = require('./constants')
+
 exports.escapeHtml = text => {
 	var map = {
 	  '&': '&amp;',
@@ -15,16 +17,24 @@ exports.escapeQuotes = text => {
 }
 
 exports.isGroup = id => {
-	return id.includes(GROUPS_PREFIX)
+	return id.includes(constants.GROUPS_PREFIX)
 }
 
 exports.getGroupID = id => {
-	var groupID = id.replace(GROUPS_PREFIX,'');
+	var groupID = id.replace(constants.GROUPS_PREFIX,'');
 	return groupID;
 }
 
 exports.rolesCheck = (rolesA, rolesB) => {
 	return rolesA.includes(rolesB[0]) && rolesB.includes(rolesA[0])
+}
+
+exports.medialumEncrypt = message => {
+	return message;
+}
+
+exports.medialumDecrypt = message => {
+	return message;
 }
 
 // function getImageData($url){
