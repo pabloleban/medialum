@@ -1,5 +1,6 @@
 const utils = require('./utils');
-const database = require('./server')
+const {database} = require('./server')
+
 const constants = require('./constants')
 
 exports.getAllUsersData = async () => {
@@ -203,7 +204,7 @@ exports.getRolesByID = user_id => {
 	})
 }
 
-exports.insertMessage = (user_from, entity_id, message, is_group, type, data) => {
+exports.insertMessage = (user_from, entity, message, type, data) => {
 	//type
 	// 0 = message
 	// 1 = file
@@ -214,32 +215,33 @@ exports.insertMessage = (user_from, entity_id, message, is_group, type, data) =>
 	
 	message = utils.medialumEncrypt(message);
 
-	if(!is_group){
+	//si entity no es un objeto, entonces es un id de una persona, si no es un grupo
+	if(!entity instanceof Object){
 		sql = `INSERT into messages_users 
 				(user_id_from, user_id_to, message, date, type, data) 
 				values 
-				(${user_from},${entity_id},'${message}', NOW(), ${type}, '${data}')`;
+				(${user_from},${entity},'${message}', NOW(), ${type}, '${data}')`;
 		
 		database.query(sql);
 	} else {
-		entity_id = getGroupID(entity_id);
-		
+		entity.id = utils.getGroupID(entity.id);
+
 		let sql = `INSERT into messages_groups 
 				(user_id_from, group_id_to, message, date, type, data) 
 				values 
-				(${user_from},${entity_id},'${message}', NOW(), ${type}, '${data}')`;
+				(${user_from},${entity.id},'${message}', NOW(), ${type}, '${data}')`;
 
 		database.query(sql).then(result => {
-			if(groups[entity_id].users.length - 1 > 0){
-				let insertedMessageID = result.insert_id
+			if(entity.users.length - 1 > 0){
+				let insertedMessageID = result.insertId
 
 				sql = "INSERT into messages_groups_seen (message_id, user_id) values ";
 
 				firstTime = true;
 
-				groups[entity_id].users.map(u => {
+				entity.users.forEach(u => {
 					if(u !== user_from){
-						sql += `${!$first_time ? ", " : ""} (${insertedMessageID},${allUsersData[u].id})"`;
+						sql += `${!firstTime ? ", " : ""}(${insertedMessageID}, ${u})`;
 						firstTime = false;
 					}
 				})
@@ -461,7 +463,7 @@ exports.getHistorial = (user_id, talking_with, from, isGroup) => {
 
 exports.clearMessages = (user_id, entity) => {
 	if(utils.isGroup(entity)){
-		entity = getGroupID(entity);
+		entity = utils.getGroupID(entity);
 		
 		let sql = `SELECT * FROM messages_groups_clear
 			where user_id = ${user_id}
@@ -512,7 +514,7 @@ exports.clearMessages = (user_id, entity) => {
 
 exports.clearSingleMessage = (user_id, entity, date, offset) => {	
 	if(utils.isGroup(entity)){
-		entity = getGroupID(entity);
+		entity = utils.getGroupID(entity);
 		
 		let sql = `select * from messages_groups
 				where group_id_to = ".$entity."
@@ -557,7 +559,7 @@ exports.clearSingleMessage = (user_id, entity, date, offset) => {
 }
 
 exports.insertSurvey = (group_id, survey) => {	
-	group_id = getGroupID(group_id);
+	group_id = utils.getGroupID(group_id);
 	
 	//inserta survey
 	let sql = `INSERT into surveys (text, type, group_id) 

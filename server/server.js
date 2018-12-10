@@ -3,7 +3,11 @@ const http = require('http').Server(app);
 const io = require('socket.io')(http);
 const Database = require('./Database');
 const database = new Database({host: "localhost", user: "root", password: "", database: "learchat"});
-module.exports = database;
+
+module.exports = {database};
+
+let allUserData = []
+let groups = []
 
 const db_methods = require('./db_methods')
 const utils = require('./utils')
@@ -12,8 +16,6 @@ const { promisify } = require('util');
 const sizeOf = promisify(require('image-size'));
 
 const sockets = [];
-let allUserData = []
-let groups = []
 
 const init = async () => {
 
@@ -94,13 +96,13 @@ const init = async () => {
 								s.emit("message", newMessage)
 							})
 							
-							db_methods.insertMessage(senderUser.id, targetUser.id, newMessage.message, false, 0, null);
+							db_methods.insertMessage(senderUser.id, targetUser.id, newMessage.message, 0, null);
 						}
 					} else {
 						const targetGroup = groups.find(g => g.id == data.target)
 
 						//checkea que el usuario que manda el msj este en el grupo
-						if(!targetGroup || !targetGroup.users.find(u => u.id == senderUser.id)){
+						if(!targetGroup || !targetGroup.users.find(u => u == senderUser.id)){
 							return;
 						}
 						
@@ -119,7 +121,7 @@ const init = async () => {
 							})
 						})
 						
-						db_methods.insertMessage(senderUser.id, targetGroup.id, data.message, true, 0, null);
+						db_methods.insertMessage(senderUser.id, targetGroup, data.message, 0, null);
 					}	
 				})
 			})
@@ -156,7 +158,7 @@ const init = async () => {
 						s.emit("message", newMessage)
 					})
 					
-					db_methods.insertMessage(senderUser.id, targetUser.id, data.file, false, 1, data.data);
+					db_methods.insertMessage(senderUser.id, targetUser.id, data.file, 1, data.data);
 				} else {
 					//group
 					const targetGroup = groups.find(g => g.id == data.target)
@@ -570,7 +572,7 @@ init();
 // 						}
 // 					}
 					
-// 					insertMessage($user["id"],$group_id,json_encode($survey),true,3, null);
+// 					insertMessage($user["id"],$group_id,json_encode($survey),3, null);
 
 // 				} catch (Exception $e){
 // 					echo 'Exception: ',  $e->getMessage(), "\n";
