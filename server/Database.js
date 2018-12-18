@@ -1,42 +1,39 @@
 const mysql = require('mysql');
 
-class Database {
-    constructor(config) {
-        this.connection = mysql.createConnection(config);
-    }
+const connection = mysql.createConnection({
+    host: process.env.DB_HOST, 
+    user: process.env.DB_USER, 
+    password: process.env.DB_PASS, 
+    database: process.env.DB_NAME
+});
 
-    async connect() {
-        return new Promise((resolve, reject) => {
-            this.connection.connect(err => {
-                if (err) reject(err);
-                console.log("MySQL Connected!");
-                module.exports = this.connection
-                resolve();
-            });
-        })
-    }
-
-    query(sql, args) {
-        return new Promise((resolve, reject) => {
-            this.connection.query(sql, args, (err, rows) => {
-                if (err){
-                    console.error(err);
-                    return reject(err);
-                }
-                resolve(rows);
-            });
+exports.connect = async () => {
+    return new Promise((resolve, reject) => {
+        connection.connect(err => {
+            if (err) reject(err);
+            console.log("MySQL Connected!");
+            resolve();
         });
-    }
-
-    close() {
-        return new Promise((resolve, reject) => {
-            this.connection.end(err => {
-                if (err)
-                    return reject(err);
-                resolve();
-            });
-        });
-    }
+    })
 }
 
-module.exports = Database;
+exports.query = (sql, args) => {
+    return new Promise((resolve, reject) => {
+        connection.query(sql, args, (err, rows) => {
+            if (err){
+                console.error(err);
+                return reject(err);
+            }
+            resolve(rows);
+        });
+    });
+}
+
+exports.close = () => {
+    return new Promise((resolve, reject) => {
+        connection.end(err => {
+            if (err) return reject(err);
+            resolve();
+        });
+    });
+}

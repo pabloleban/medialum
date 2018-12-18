@@ -1,5 +1,5 @@
 const utils = require('./utils');
-const {database} = require('./server')
+const database = require('./database')
 
 const constants = require('./constants')
 
@@ -166,10 +166,10 @@ exports.getGroups = async () => {
 
 		database.query(sql).then(result => {
 			result.forEach(g => {
-				let group = allgroups.find(ag => ag.id === constants.GROUPS_PREFIX+g.id);
+				let group = allgroups.find(ag => ag.id == g.id);
 				if(!group){
-					allgroups.push({ id: constants.GROUPS_PREFIX+g.id, users: [], name: g.name })
-					group = allgroups.find(ag => ag.id === constants.GROUPS_PREFIX+g.id);
+					allgroups.push({ id: g.id, users: [], name: g.name })
+					group = allgroups.find(ag => ag.id === g.id);
 				}
 
 				group.users.push(g.user_id)
@@ -213,19 +213,10 @@ exports.insertMessage = (user_from, entity, message, type, data) => {
 
 	let sql;
 	
-	message = utils.medialumEncrypt(message);
+	message = utils.encrypt(message);
 
-	//si entity no es un objeto, entonces es un id de una persona, si no es un grupo
-	if(!entity instanceof Object){
-		sql = `INSERT into messages_users 
-				(user_id_from, user_id_to, message, date, type, data) 
-				values 
-				(${user_from},${entity},'${message}', NOW(), ${type}, '${data}')`;
-		
-		database.query(sql);
-	} else {
-		entity.id = utils.getGroupID(entity.id);
-
+	//si entity es un objeto, entonces es un id de un grupo, si no es un persona
+	if(entity instanceof Object){
 		let sql = `INSERT into messages_groups 
 				(user_id_from, group_id_to, message, date, type, data) 
 				values 
@@ -249,11 +240,18 @@ exports.insertMessage = (user_from, entity, message, type, data) => {
 				database.query(sql);
 			}
 		});
+	} else {
+		sql = `INSERT into messages_users 
+				(user_id_from, user_id_to, message, date, type, data) 
+				values 
+				(${user_from},${entity},'${message}', NOW(), ${type}, '${data}')`;
+		
+		database.query(sql);
 	}
 }
 
 exports.insertStatus = (group_id, status_msg) => {
-	let message = utils.medialumEncrypt(status_msg);
+	let message = utils.encrypt(status_msg);
 	
 	let sql = `INSERT into messages_groups 
 				(user_id_from, group_id_to, message, date, type) 
@@ -361,66 +359,61 @@ exports.usernameMessagesSeen = (user_that_reads, from_user) => {
 	database.query(sql);
 }
 
-exports.getHistorial = (user_id, talking_with, from, isGroup) => {
+exports.getHistorial = async (user_id, talking_with, from) => {
 	let messages_per_page = 20;
 	
 	from = from * messages_per_page;
 	
 	let sql = "";
-	let promise = null;
 
-	const retrieveHistorial = (sql) => {
+	const retrieveHistorial = async sql => {
 		return new Promise((resolve,reject) => {
 			database.query(sql).then(result => {
-				if(result.length > 0){
-					let historial = [];
-				
-					result.forEach(r => {
-						let type = "";
-						switch(r.type){
-							case 0:
-								type = "usermsg";
-								break;
-							case 1:
-								type = "file";
-								break;
-							case 2:
-								type = "status";
-								break;
-							case 3:
-								type = "survey";
-								break;
-							default:
-								type = "usermsg";
-								break;
-						}
-						
-						historial.push({
-							type, 
-							from: r.user_from,
-							message: utils.medialumDecrypt(r.message),
-							target: r.target,
-							date: r.date,
-							data: r.data
-						});
-					})
+				let historial = [];
+			
+				result.forEach(r => {
+					let type = "";
+					switch(r.type){
+						case 0:
+							type = "usermsg";
+							break;
+						case 1:
+							type = "file";
+							break;
+						case 2:
+							type = "status";
+							break;
+						case 3:
+							type = "survey";
+							break;
+						default:
+							type = "usermsg";
+							break;
+					}
 					
-					resolve(historial);
-				} else {
-					resolve(false);
-				}
+					historial.push({
+						type, 
+						from: r.user_from,
+						message: utils.decrypt(r.message),
+						target: r.target,
+						date: r.date,
+						data: r.data
+					});
+				})
+				
+				resolve(historial);
 			})
 		});
 	}
 
-	if(isGroup){
+	if(utils.isGroup(talking_with)){
 		sql = `SELECT clear_date from messages_groups_clear 
-				WHERE group_id = ${talking_with}
+				WHERE group_id = ${utils.getGroupID(talking_with)}
 				AND user_id = ${user_id}
 				AND message_id is null
 				LIMIT 1;`
 		
-		database.query(sql).then(result => {
+		return database.query(sql).then(result => {
 			let date = "";
 
 			if(result.length > 0){
@@ -429,12 +422,12 @@ exports.getHistorial = (user_id, talking_with, from, isGroup) => {
 				date = "2000-06-09 00:00:00"
 			}
 
-			return `SELECT mg.*, concat('${constants.GROUPS_PREFIX}',mg.group_id_to) target, u.id user_from
+			sql = `SELECT mg.*, concat('${constants.GROUPS_PREFIX}',mg.group_id_to) target, mg.user_id_from user_from
 			FROM groups_members gm, messages_groups mg 
 			LEFT JOIN usuarios u
 			ON mg.user_id_from = u.id 
 			WHERE mg.group_id_to = gm.group_id
-			AND gm.group_id = ${talking_with}
+			AND gm.group_id = ${utils.getGroupID(talking_with)}
 			AND gm.user_id = ${user_id}
 			AND (u.habilitado = 1 or mg.user_id_from is null)
 			AND mg.date >= gm.date
@@ -442,9 +435,9 @@ exports.getHistorial = (user_id, talking_with, from, isGroup) => {
 			AND mg.id not in (select message_id from messages_groups_clear where user_id = ${user_id} and message_id is not null)
 			ORDER BY mg.id desc
 			LIMIT ${from}, ${messages_per_page};`;
-		});		
 
-		return retrieveHistorial(sql);
+			return retrieveHistorial(sql);
+		});		 
 	} else {
 		sql = `SELECT uf.id user_from, ut.id target, mu.*
 				FROM messages_users mu, usuarios uf, usuarios ut

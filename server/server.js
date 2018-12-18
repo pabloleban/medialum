@@ -1,10 +1,9 @@
 const app = require('express')();
 const http = require('http').Server(app);
 const io = require('socket.io')(http);
-const Database = require('./Database');
-const database = new Database({host: "localhost", user: "root", password: "", database: "learchat"});
+const database = require('./database')
 
-module.exports = {database};
+const constants = require('./constants')
 
 let allUserData = []
 let groups = []
@@ -99,7 +98,7 @@ const init = async () => {
 							db_methods.insertMessage(senderUser.id, targetUser.id, newMessage.message, 0, null);
 						}
 					} else {
-						const targetGroup = groups.find(g => g.id == data.target)
+						const targetGroup = groups.find(g => g.id == utils.getGroupID(data.target))
 
 						//checkea que el usuario que manda el msj este en el grupo
 						if(!targetGroup || !targetGroup.users.find(u => u == senderUser.id)){
@@ -112,11 +111,11 @@ const init = async () => {
 								from: senderUser.id,
 								message: data.message,
 								randomID: data.randomID,
-								target: targetGroup.id
+								target: constants.GROUPS_PREFIX + targetGroup.id
 							}
 
 							//send message to all sender instances
-							sockets.filter( s => s.id == u).forEach(s => {
+							sockets.filter( s => s.user.id == u).forEach(s => {
 								socket.emit("message", newMessage);
 							})
 						})
@@ -162,12 +161,12 @@ const init = async () => {
 				} else {
 					//group
 					const targetGroup = groups.find(g => g.id == data.target)
-					
+
 					//checkea que el usuario que manda el msj este en el grupo
 					if(!targetGroup || !targetGroup.users.find(u => u.id == senderUser.id)){
 						return;
 					}
-					
+
 					targetGroup.users.forEach(u => {
 						const newMessage = {
 							type: "file", 
@@ -184,7 +183,7 @@ const init = async () => {
 						})
 					})
 					
-					db_methods.insertMessage(senderUser.id, targetGroup.id, data.file, true, 1, data.data);
+					db_methods.insertMessage(senderUser.id, targetGroup, data.file, true, 1, data.data);
 				}	
 			})
 
@@ -357,12 +356,8 @@ const init = async () => {
 
 				let historial = [];
 
-				if (utils.isGroup(data.target)) {
-					historial = await db_methods.getHistorial(senderUser.id, utils.getGroupID(data.target), data.from, true);
-				} else {
-					historial = await db_methods.getHistorial(senderUser.id, data.target, data.from, false);
-				}
-				
+				historial = await db_methods.getHistorial(senderUser.id, data.target, data.from);
+
 				const allHistorial = {
 					historial: historial.length > 0 ? historial : "end",
 					target: data.target
@@ -370,6 +365,10 @@ const init = async () => {
 
 				socket.emit("historial", allHistorial)
 			});
+
+			socket.on('ms-check', () => {
+				socket.emit('ms-check');
+			})
 		})
 
 		socket.on('disconnect', () => {
@@ -399,7 +398,7 @@ const init = async () => {
 init();
 		
 // 		switch($type){
-// 		    case "ping":
+// 		    case "ms-check":
 // 		        send_message(json_encode(array("type"=>"pong","when"=>$tst_msg->when)),$user["username"]);
 // 		        break;
 		
