@@ -3,80 +3,37 @@ const database = require('./database')
 
 const constants = require('./constants')
 
+const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto","septiembre","octubre","noviembre","diciembre"];
+
 exports.getAllUsersData = async () => {
 	return new Promise((resolve, reject) => {
-		let sql = "select * from usuarios;";
+		let sql = `select id, nombre, apellido, nick, username, celular,
+					email, nacimiento, apodo, habilitado, disconnected_at 
+					from usuarios;`;
 		database.query(sql).then(async result => {
-			let data = [];
-			result.forEach(u => {
-				delete u.password;
+			const original_colors = ['FF0000','FF4B4B','FF8585','BD6262','981616','9E8282','9C0000','FF8300','BD6100','FFA547','926739','864501','D6BD00','CAC28A','948621','9EC700','B2CE45','949E6A','556900','316900','63D400','80DC30','81A95E','68B525','23D45B','59CE7E','08E29D','6FD0B1','2B9472','02d2d4','4CD3D4','0070FF','63A8FF','0056C3','91C2FF','2900FF','180098','9B8BEF','5939FF','BE39FF','AB00FF','8600C7','B77BD4','FF00E9','FF76F3','960089','B97AB4','FF0068','FF79B0','A00042','FFA700'];
+			let colors = [...original_colors]
+
+			result.map(u => {
 				u.roles = [];
-				data[u.id] = u;
+				u.state = "offline"
+				const date = new Date(u.nacimiento);
+
+				u.nacimiento = `${date.getDate()} de ${meses[date.getMonth()]}`;
+
+				if(colors.length <= 0) colors = [...original_colors];
+				let userNumber = u.id % colors.length;
+				u.color = colors[userNumber];
+				colors.splice(userNumber,1);
 			})
 
 			const roles = await this.getAllRoles();
-
 			roles.forEach(r => {
-				data[r.user_id].roles.push(r.rol_id)
+				result.find(u => u.id == r.user_id).roles.push(r.rol_id)
 			})
 
-			resolve(data);
+			resolve(result);
 		});
-	})
-}
-
-exports.getAllUsersDataOfUser = async id => {
-	return new Promise ((resolve, reject) => {
-		const original_colors = ['FF0000','FF4B4B','FF8585','BD6262','981616','9E8282','9C0000','FF8300','BD6100','FFA547','926739','864501','D6BD00','CAC28A','948621','9EC700','B2CE45','949E6A','556900','316900','63D400','80DC30','81A95E','68B525','23D45B','59CE7E','08E29D','6FD0B1','2B9472','02d2d4','4CD3D4','0070FF','63A8FF','0056C3','91C2FF','2900FF','180098','9B8BEF','5939FF','BE39FF','AB00FF','8600C7','B77BD4','FF00E9','FF76F3','960089','B97AB4','FF0068','FF79B0','A00042','FFA700'];
-		
-		let colors = [...original_colors]
-		
-		let sql = `select u.* from usuarios u where u.id in
-					(select user_id from roles_usuarios where rol_id in
-						(select rol_id from roles_usuarios where user_id = '${id}')) and u.habilitado = 1;`;
-
-		let usersData = [];
-		
-		database.query(sql).then(result => {
-			result.forEach(r => {
-				delete r.password;
-				delete r.recover_user_code;
-				delete r.medialum_go_sound;
-				delete r.habilitado;
-				delete r.ver_desconectados;
-				delete r.sn_mensaje;
-				delete r.recordatorio_notif;
-				delete r.is_bot
-
-				if(colors.length <= 0){
-					colors = [...original_colors]
-				}
-			
-				let userNumber = r.id % colors.length;
-					
-				r.color = colors[userNumber];
-					
-				colors.splice(userNumber,1);
-					
-				if(r.nacimiento){
-					let date = new Date(r.nacimiento);
-				
-					let meses = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
-				
-					let dia = date.getDate();
-					let mes = date.getMonth();
-				
-					r.nacimiento = `${dia} de ${meses[mes]}`;
-				}
-					
-				r.state = "offline";
-				r.typing = false;
-					
-				usersData.push(r);
-			});
-			
-			resolve(usersData);
-		}, reject);
 	})
 }
 
@@ -108,7 +65,7 @@ exports.getUnreadMessages = user_id => {
 			and mg.id = mgs.message_id
 			group by group_id_to
 			UNION
-			select count(*) notifications, username entity_from from messages_users, usuarios u
+			select count(*) notifications, u.id entity_from from messages_users, usuarios u
 			where seen = 0
 			and user_id_to = ${user_id}
 			and u.id = user_id_from
@@ -134,7 +91,7 @@ exports.getEntitiesOrder = user_id => {
 			             and ${user_id} in (user_id, user_id_from)
 			            group by group_id 
 			       union 
-			       select username, fec
+			       select u.id, fec
 			        from (select if(user_id_to = ${user_id}, user_id_from, user_id_to) us, max(date) fec
 			              from messages_users
 			               where ${user_id} in (user_id_from, user_id_to)
@@ -251,12 +208,13 @@ exports.insertMessage = (user_from, entity, message, type, data) => {
 }
 
 exports.insertStatus = (group_id, status_msg) => {
-	let message = utils.encrypt(status_msg);
 	
-	let sql = `INSERT into messages_groups 
+	const status = {type: "status", status: status_msg}
+
+	const sql = `INSERT into messages_groups 
 				(user_id_from, group_id_to, message, date, type) 
 				values 
-				(null,${group_id},'${message}', NOW(), 2);`;
+				(null,${group_id},'${utils.encrypt(JSON.stringify(status))}', NOW(), 2);`;
 
 	return database.query(sql);
 }
@@ -334,13 +292,6 @@ exports.changeGroupName = (group_id, name, by) => {
 				where id = "${group_id};`
 		
 		database.query(sql);
-		
-		insertStatus(group_id, 
-			{type: "status", 
-			status_type: "group_name_change", 
-			group_name_change_from: from,
-			group_name_change_to: name,
-			by});
 	})	
 }
 
@@ -375,7 +326,7 @@ exports.getHistorial = async (user_id, talking_with, from) => {
 					let type = "";
 					switch(r.type){
 						case 0:
-							type = "usermsg";
+							type = "message";
 							break;
 						case 1:
 							type = "file";
@@ -387,7 +338,7 @@ exports.getHistorial = async (user_id, talking_with, from) => {
 							type = "survey";
 							break;
 						default:
-							type = "usermsg";
+							type = "message";
 							break;
 					}
 					

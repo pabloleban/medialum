@@ -2,12 +2,15 @@
     "name": "medialum",
     "version": "4.0.0",
     "description": "Chat for businesses",
+    "scripts": {
+        "start": "node index"
+    },
     "dependencies": {
         "crypto": "^1.0.1",
         "dotenv": "^6.2.0",
         "express": "^4.16.4",
-        "image-size": "^0.6.3",
         "mysql": "^2.16.0",
+        "probe-image-size": "^4.0.0",
         "socket.io": "^2.1.1"
     }
 }

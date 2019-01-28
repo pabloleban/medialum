@@ -10,7 +10,10 @@ const connection = mysql.createConnection({
 exports.connect = async () => {
     return new Promise((resolve, reject) => {
         connection.connect(err => {
-            if (err) reject(err);
+            if (err) {
+                reject(err);
+                return;
+            } 
             console.log("MySQL Connected!");
             resolve();
         });
@@ -21,8 +24,8 @@ exports.query = (sql, args) => {
     return new Promise((resolve, reject) => {
         connection.query(sql, args, (err, rows) => {
             if (err){
-                console.error(err);
-                return reject(err);
+                reject(err);
+                return;
             }
             resolve(rows);
         });
@@ -32,7 +35,10 @@ exports.query = (sql, args) => {
 exports.close = () => {
     return new Promise((resolve, reject) => {
         connection.end(err => {
-            if (err) return reject(err);
+            if (err) {
+                reject(err);
+                return;
+            }
             resolve();
         });
     });
