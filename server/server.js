@@ -92,7 +92,8 @@ const init = async () => {
 							canUser = false;
 						break;
 
-						default: return;
+						default: 
+							return;
 					}
 
 					let target = null
@@ -229,14 +230,21 @@ const init = async () => {
 				})
 			})
 
-			socket.on('updatepic', group_id => {
+			socket.on('updatepic', data => {
 				const senderUser = allUserData.find(u => u.id == socket.user_id);
 
-				let entity = group_id ? group_id : senderUser.id;
+				const entity = data.group_id ? data.group_id : senderUser.id;
 				
+				if(data.group_id){
+					const group = groups.find(g => g.id == utils.getGroupID(data.group_id))
+					group.has_pic = data.new ? 1 : 0;
+				} else {
+					senderUser.has_pic = data.new ? 1 : 0;
+				}
+
 				sockets.forEach(s => {
 					if(utils.rolesCheck(senderUser.roles, allUserData.find(u => u.id == s.user_id).roles)){
-						s.emit('updatepic', entiy)
+						s.emit('updatepic', entity)
 					}
 				})
 			})
