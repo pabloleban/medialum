@@ -299,13 +299,14 @@ exports.groupMessagesSeen = (user_id, group_id) => {
 	let sql = `update messages_groups_seen
 			set seen = 1
 			where user_id = ${user_id}
+			and seen = 0
 			and message_id in (select id from messages_groups where group_id_to = ${group_id});`;
 	
 	database.query(sql);
 }
 
 exports.usernameMessagesSeen = (user_that_reads, from_user) => {
-	let sql = `UPDATE messages_users set seen = 1 WHERE user_id_to = ${user_that_reads} AND user_id_from = ${from_user}`;
+	let sql = `UPDATE messages_users set seen = 1 WHERE user_id_to = ${user_that_reads} AND user_id_from = ${from_user} and seen = 0`;
 	
 	database.query(sql);
 }
