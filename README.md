@@ -1,10 +1,10 @@
 # Medialum
 Chat service with NodeJS and SocketIO.
 
-## Road map
-### Q4 2018
+## Project goals
+### Node Server in Production
 Websocket service in SocketIO and NodeJS.
 
-### Q1 2019 & Q2 2019
+### Code centralization
 Migration of whole Apache to Express.
  

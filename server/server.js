@@ -27,180 +27,180 @@ const sockets = [];
 	console.log("Retrieving groups...")
 	groups = await db_methods.getGroups();
 
-	io.on('connection', function(socket){
+	io.on('connection', socket => {
 		console.log('a user connected');
 		
 		sockets.push(socket);
 
-		socket.on('register', registration => {
-			db_methods.login(registration.username, registration.password).then(async result => {
-				console.log('login successful');
+		socket.on('register', async registration => {
+			const loginResult = await db_methods.login(registration.username, registration.password);
+			console.log('login successful');
 
-				socket.user_id = result.id;
+			socket.user_id = loginResult.id;
 
-				//actualiza estado
-				allUserData.find(u => u.id == socket.user_id).state = registration.state ? registration.state : "online";
+			//actualiza estado
+			allUserData.find(u => u.id == socket.user_id).state = registration.state ? registration.state : "online";
 
-				//get all users that this user can see (except users without the required roles)
-				const visibleUsers = []
-				allUserData.forEach(u => {
-					if(utils.rolesCheck(u.roles, allUserData.find(u => u.id == socket.user_id).roles) && u.habilitado == 1){
-						visibleUsers.push(u)
-					}
-				})
+			//get all users that this user can see (except users without the required roles)
+			const visibleUsers = []
+			allUserData.forEach(u => {
+				if(utils.rolesCheck(u.roles, allUserData.find(u => u.id == socket.user_id).roles) && u.habilitado == 1){
+					visibleUsers.push(u)
+				}
+			})
 				
-				socket.emit('all-users', visibleUsers)
+			socket.emit('all-users', visibleUsers)
 
-				//get all groups of user
-				const userGroups = groups.filter(g => g.users.filter(u => { u == socket.user_id }));
-				socket.emit('group-list', userGroups);
+			//get all groups of user
+			const userGroups = groups.filter(g => g.users.filter(u => u == socket.user_id ));
+			socket.emit('group-list', userGroups);
 
-				//once data and groups are retrieved, get order and unread messages
-				db_methods.getEntitiesOrder(socket.user_id).then(result => {
-					socket.emit('order', result);
-				})
+			//once data and groups are retrieved, get order and unread messages
+			db_methods.getEntitiesOrder(socket.user_id).then(result => {
+				socket.emit('order', result);
+			})
 
-				db_methods.getUnreadMessages(socket.user_id).then(result => {
-					socket.emit('unread_messages', result);
-				})
-				
-				sockets.forEach(s => {
-					if(s.user && utils.rolesCheck(allUserData.find(u => u.id == socket.user_id).roles, allUserData.find(u => u.id == s.user_id).roles)){
-						s.emit('connected', {id: socket.user_id, state: allUserData.find(u => u.id == socket.user_id).state})
-						console.log("Se conecto "+socket.user_id)
-					}
-				})
-
-				socket.on('message', async data => {
-					const senderUser = allUserData.find(u => u.id == socket.user_id);
-
-					let canGroup = false;
-					let canUser = false;
-					let isGroup = false;
-
-					//checkea los tipos; cual puede ser enviado a un usuario y a grupos
-					switch(data.type){
-						case "message":
-						case "file":
-							canGroup = true;
-							canUser = true;
-						break;
-
-						case "survey":
-						case "status":
-							canGroup = true;
-							canUser = false;
-						break;
-
-						default: return;
-					}
-
-					let target = null
-
-					//target es usuario o grupo, obtiene el target
-					if(!utils.isGroup(data.target)){
-						target = allUserData.find(u => u.id == data.target); 
-					} else {
-						target = groups.find(g => g.id == utils.getGroupID(data.target))
-						isGroup = true;
-					}
-
-					//checkea que tenga los roles necesarios y que target sea algo
-					if(!target || (!isGroup && !utils.rolesCheck(target.roles, senderUser.roles))) return;
-
-					let newMessage = {}
-
-					switch(data.type){
-						case 'message':
-							data.message = utils.escapeHtml(data.message.trim())
-
-							//prepare data to be sent to client
-							newMessage = {
-								type: "message", 
-								from: senderUser.id, 
-								message: data.message, 
-								randomID: data.randomID, 
-								target: isGroup ? constants.GROUPS_PREFIX + target.id : target.id
-							};
-
-							if(isGroup){
-								//checkea que el usuario que manda el msj este en el grupo
-								if(!target || !target.users.find(u => u == senderUser.id)){
-									return;
-								}
-
-								target.users.forEach(u => {
-									//send message to all users groups instances
-									sockets.filter( s => s.user_id == u).forEach(s => {
-										s.emit("message", newMessage);
-									})
-								})
-
-								db_methods.insertMessage(senderUser.id, target, newMessage.message, 0, null);
-							} else {
-								//send message to all sender instances and all target instances
-								sockets.filter( s => s.user_id === senderUser.id || s.user_id === target.id).forEach(s => {
-									s.emit("message", newMessage);
-								})
-
-								db_methods.insertMessage(senderUser.id, target.id, newMessage.message, 0, null);
-							}
-						break;
-
-						case "file":
-							data.file = utils.escapeQuotes(data.file); //message text
-
-							switch(path.extname(data.file).toLowerCase()){
-								case ".jpg":
-								case ".gif":
-								case ".png":
-								case ".svg":
-								case ".jpeg":
-								case ".bpm":
-								case ".ico":
-									const filesize = await probe(process.env.FILES_URL + data.file);
-									data.data = JSON.stringify(filesize);
-								break;
-								default:
-									data.data = null;
-								break;
-							}
-
-							//prepare data to be sent to client
-							newMessage = {
-								type: "file", 
-								from: senderUser.id, 
-								message: data.file, 
-								randomID: data.randomID, 
-								target: isGroup ? constants.GROUPS_PREFIX + target.id : target.id,
-								data: data.data
-							};
-
-							if(isGroup){								
-								//checkea que el usuario que manda el msj este en el grupo
-								if(!target || !target.users.find(u => u == senderUser.id)){
-									return;
-								}
+			db_methods.getUnreadMessages(socket.user_id).then(result => {
+				socket.emit('unread_messages', result);
+			})
 			
-								target.users.forEach(u => {
-									//send message to all sender instances
-									sockets.filter( s => s.user_id == u).forEach(s => {
-										s.emit("message", newMessage);
-									})
-								})
-								
-								db_methods.insertMessage(senderUser.id, target, data.file, 1, data.data);
-							} else {			
-								//send message to all sender instances and all target instances
-								sockets.filter( s => s.user_id === senderUser.id || s.user_id === target.id).forEach(s => {
+			sockets.forEach(s => {
+				if(s.user && utils.rolesCheck(allUserData.find(u => u.id == socket.user_id).roles, allUserData.find(u => u.id == s.user_id).roles)){
+					s.emit('connected', {id: socket.user_id, state: allUserData.find(u => u.id == socket.user_id).state})
+					console.log("Se conecto "+socket.user_id)
+				}
+			})
+
+			socket.on('message', async data => {
+				const senderUser = allUserData.find(u => u.id == socket.user_id);
+
+				let canGroup = false;
+				let canUser = false;
+				let isGroup = false;
+
+				//checkea los tipos; cual puede ser enviado a un usuario y a grupos
+				switch(data.type){
+					case "message":
+					case "file":
+						canGroup = true;
+						canUser = true;
+					break;
+
+					case "survey":
+					case "status":
+						canGroup = true;
+						canUser = false;
+					break;
+
+					default: 
+						return;
+				}
+
+				let target = null
+
+				//target es usuario o grupo, obtiene el target
+				if(!utils.isGroup(data.target)){
+					target = allUserData.find(u => u.id == data.target); 
+				} else {
+					target = groups.find(g => g.id == utils.getGroupID(data.target))
+					isGroup = true;
+				}
+
+				//checkea que tenga los roles necesarios y que target sea algo
+				if(!target || (!isGroup && !utils.rolesCheck(target.roles, senderUser.roles))) return;
+
+				let newMessage = {}
+
+				switch(data.type){
+					case 'message':
+						data.message = utils.escapeHtml(data.message.trim())
+
+						//prepare data to be sent to client
+						newMessage = {
+							type: "message", 
+							from: senderUser.id, 
+							message: data.message, 
+							randomID: data.randomID, 
+							target: isGroup ? constants.GROUPS_PREFIX + target.id : target.id
+						};
+
+						if(isGroup){
+							//checkea que el usuario que manda el msj este en el grupo
+							if(!target || !target.users.find(u => u == senderUser.id)){
+								return;
+							}
+
+							target.users.forEach(u => {
+								//send message to all users groups instances
+								sockets.filter( s => s.user_id == u).forEach(s => {
 									s.emit("message", newMessage);
 								})
-								
-								db_methods.insertMessage(senderUser.id, target.id, data.file, 1, data.data);
-							}	
-						break;
-					}
-				})
+							})
+
+							db_methods.insertMessage(senderUser.id, target, newMessage.message, 0, null);
+						} else {
+							//send message to all sender instances and all target instances
+							sockets.filter( s => s.user_id === senderUser.id || s.user_id === target.id).forEach(s => {
+								s.emit("message", newMessage);
+							})
+
+							db_methods.insertMessage(senderUser.id, target.id, newMessage.message, 0, null);
+						}
+					break;
+
+					case "file":
+						data.file = utils.escapeQuotes(data.file); //message text
+
+						switch(path.extname(data.file).toLowerCase()){
+							case ".jpg":
+							case ".gif":
+							case ".png":
+							case ".svg":
+							case ".jpeg":
+							case ".bpm":
+							case ".ico":
+								const filesize = await probe(process.env.FILES_URL + data.file);
+								data.data = JSON.stringify(filesize);
+							break;
+							default:
+								data.data = null;
+							break;
+						}
+
+						//prepare data to be sent to client
+						newMessage = {
+							type: "file", 
+							from: senderUser.id, 
+							message: data.file, 
+							randomID: data.randomID, 
+							target: isGroup ? constants.GROUPS_PREFIX + target.id : target.id,
+							data: data.data
+						};
+
+						if(isGroup){								
+							//checkea que el usuario que manda el msj este en el grupo
+							if(!target || !target.users.find(u => u == senderUser.id)){
+								return;
+							}
+		
+							target.users.forEach(u => {
+								//send message to all sender instances
+								sockets.filter( s => s.user_id == u).forEach(s => {
+									s.emit("message", newMessage);
+								})
+							})
+							
+							db_methods.insertMessage(senderUser.id, target, data.file, 1, data.data);
+						} else {			
+							//send message to all sender instances and all target instances
+							sockets.filter( s => s.user_id === senderUser.id || s.user_id === target.id).forEach(s => {
+								s.emit("message", newMessage);
+							})
+							
+							db_methods.insertMessage(senderUser.id, target.id, data.file, 1, data.data);
+						}	
+					break;
+				}
 			})
 
 			socket.on("state", state => {
@@ -229,14 +229,21 @@ const sockets = [];
 				})
 			})
 
-			socket.on('updatepic', group_id => {
+			socket.on('updatepic', data => {
 				const senderUser = allUserData.find(u => u.id == socket.user_id);
 
-				let entity = group_id ? group_id : senderUser.id;
+				const entity = data.group_id ? data.group_id : senderUser.id;
 				
+				if(data.group_id){
+					const group = groups.find(g => g.id == utils.getGroupID(data.group_id))
+					group.has_pic = data.new ? 1 : 0;
+				} else {
+					senderUser.has_pic = data.new ? 1 : 0;
+				}
+
 				sockets.forEach(s => {
 					if(utils.rolesCheck(senderUser.roles, allUserData.find(u => u.id == s.user_id).roles)){
-						s.emit('updatepic', entiy)
+						s.emit('updatepic', entity)
 					}
 				})
 			})
@@ -311,6 +318,42 @@ const sockets = [];
 						s.emit('new-group', newGroup)
 					})
 				})
+			})
+
+			socket.on("exit-group", group_id => {
+				// $json = array("type"=>"exit-user-group","who"=>$user["username"],"group_id"=>$tst_msg->id);
+				
+				db_methods.exitGroup(socket.user_id, group_id);
+				
+				const group = groups.find(g => g.id == group_id);
+				const indexToRemove = group.users.indexOf(socket.user_id)
+				if(indexToRemove >= 0){
+					group.users.splice(indexToRemove, 1);
+				}
+
+				sockets.filter(s => s.user_id == u ).forEach(s => {
+					s.emit("exit-user-group", {id: group_id, user_id: socket.user_id });
+				})
+
+
+						for($j=0;$j<count($groups[$i]["users"]);$j++){
+							send_message(json_encode($json),$groups[$i]["users"][$j]);
+						}
+						array_splice($groups[$i]["users"],array_search($user["username"],$groups[$i]["users"]),1);
+						
+						$get_group_id = getGroupID($groups[$i]["id"]);
+						
+						insertStatus($get_group_id,json_encode(array("type"=>"status","type"=>"group-exit","who"=>$user["username"])));
+						if(count($groups[$i]["users"])<=0){
+							//si tiene 0 usuarios, borra el grupo.
+							array_splice($groups,$i,1);
+							//deleteGroup($get_group_id);
+						} else if(count($groups[$i]["users"])==1){
+							insertStatus($get_group_id,json_encode(array("type"=>"status","type"=>"you-are-alone")));
+						}
+						break;
+					}
+				}
 			})
 
 			socket.on("add-to-group", data => {			

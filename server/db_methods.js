@@ -8,7 +8,7 @@ const meses = ["enero","febrero","marzo","abril","mayo","junio","julio","agosto"
 exports.getAllUsersData = async () => {
 	return new Promise((resolve, reject) => {
 		let sql = `select id, nombre, apellido, nick, username, celular,
-					email, nacimiento, apodo, habilitado, disconnected_at 
+					email, nacimiento, apodo, habilitado, disconnected_at, has_pic 
 					from usuarios;`;
 		database.query(sql).then(async result => {
 			const original_colors = ['FF0000','FF4B4B','FF8585','BD6262','981616','9E8282','9C0000','FF8300','BD6100','FFA547','926739','864501','D6BD00','CAC28A','948621','9EC700','B2CE45','949E6A','556900','316900','63D400','80DC30','81A95E','68B525','23D45B','59CE7E','08E29D','6FD0B1','2B9472','02d2d4','4CD3D4','0070FF','63A8FF','0056C3','91C2FF','2900FF','180098','9B8BEF','5939FF','BE39FF','AB00FF','8600C7','B77BD4','FF00E9','FF76F3','960089','B97AB4','FF0068','FF79B0','A00042','FFA700'];
@@ -113,7 +113,7 @@ exports.getEntitiesOrder = user_id => {
 
 exports.getGroups = async () => {
 	return new Promise((resolve, reject) => {
-		let sql = `SELECT g.id, m.user_id, g.name 
+		let sql = `SELECT g.id, m.user_id, g.name, g.has_pic 
 		FROM groups g, groups_members m, usuarios u
 		where g.id = m.group_id
 		and u.id = m.user_id
@@ -125,7 +125,7 @@ exports.getGroups = async () => {
 			result.forEach(g => {
 				let group = allgroups.find(ag => ag.id == g.id);
 				if(!group){
-					allgroups.push({ id: g.id, users: [], name: g.name })
+					allgroups.push({ id: g.id, users: [], name: g.name, has_pic: g.has_pic })
 					group = allgroups.find(ag => ag.id === g.id);
 				}
 
@@ -299,13 +299,14 @@ exports.groupMessagesSeen = (user_id, group_id) => {
 	let sql = `update messages_groups_seen
 			set seen = 1
 			where user_id = ${user_id}
+			and seen = 0
 			and message_id in (select id from messages_groups where group_id_to = ${group_id});`;
 	
 	database.query(sql);
 }
 
 exports.usernameMessagesSeen = (user_that_reads, from_user) => {
-	let sql = `UPDATE messages_users set seen = 1 WHERE user_id_to = ${user_that_reads} AND user_id_from = ${from_user}`;
+	let sql = `UPDATE messages_users set seen = 1 WHERE user_id_to = ${user_that_reads} AND user_id_from = ${from_user} and seen = 0`;
 	
 	database.query(sql);
 }
