@@ -16,7 +16,7 @@ const path = require('path')
 
 const sockets = [];
 
-const init = async () => {
+(async () => {
 
 	console.log("Connecting to MySQL...")
 	await database.connect();
@@ -415,13 +415,11 @@ const init = async () => {
 		});
 	});
 
-	http.listen(3000, function(){
+	http.listen(3000, () => {
 		console.log('listening on *:3000');
 	});
 
-}
-
-init();
+})();
 		
 // 		switch($type){
 // 		    case "ms-check":
