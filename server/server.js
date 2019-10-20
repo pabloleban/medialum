@@ -469,26 +469,6 @@ const sockets = [];
 	});
 
 })();
-<<<<<<< HEAD
-=======
-		
-// 		switch($type){
-// 		    case "ms-check":
-// 		        send_message(json_encode(array("type"=>"pong","when"=>$tst_msg->when)),$user["username"]);
-// 		        break;
-		
-// 			case "exit-group":
-// 				$json = array("type"=>"exit-user-group","who"=>$user["username"],"group_id"=>$tst_msg->id);
-				
-// 				exitGroup(getUserID($user["username"]),getGroupID($tst_msg->id));
-				
-// 				for($i=0;$i<count($groups);$i++){
-// 					if($groups[$i]["id"]==$tst_msg->id && array_search($user["username"],$groups[$i]["users"]) !== false){
-// 						for($j=0;$j<count($groups[$i]["users"]);$j++){
-// 							send_message(json_encode($json),$groups[$i]["users"][$j]);
-// 						}
-// 						array_splice($groups[$i]["users"],array_search($user["username"],$groups[$i]["users"]),1);
->>>>>>> 34ac3a1d89f05dd4faa4e49d8df3b7187b12ff9c
 						
 // 			case "survey":
 // 				try{
