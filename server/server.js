@@ -16,7 +16,7 @@ const path = require('path')
 
 const sockets = [];
 
-const init = async () => {
+(async () => {
 
 	console.log("Connecting to MySQL...")
 	await database.connect();
@@ -320,40 +320,20 @@ const init = async () => {
 				})
 			})
 
-			socket.on("exit-group", group_id => {
-				// $json = array("type"=>"exit-user-group","who"=>$user["username"],"group_id"=>$tst_msg->id);
-				
+			socket.on("exit-group", group_id => {				
 				db_methods.exitGroup(socket.user_id, group_id);
 				
 				const group = groups.find(g => g.id == group_id);
 				const indexToRemove = group.users.indexOf(socket.user_id)
-				if(indexToRemove >= 0){
+				if(indexToRemove > -1){
 					group.users.splice(indexToRemove, 1);
 				}
 
-				sockets.filter(s => s.user_id == u ).forEach(s => {
+				sockets.filter(s => group.users.includes(s.user_id)).forEach(s => {
 					s.emit("exit-user-group", {id: group_id, user_id: socket.user_id });
 				})
 
-
-						for($j=0;$j<count($groups[$i]["users"]);$j++){
-							send_message(json_encode($json),$groups[$i]["users"][$j]);
-						}
-						array_splice($groups[$i]["users"],array_search($user["username"],$groups[$i]["users"]),1);
-						
-						$get_group_id = getGroupID($groups[$i]["id"]);
-						
-						insertStatus($get_group_id,json_encode(array("type"=>"status","type"=>"group-exit","who"=>$user["username"])));
-						if(count($groups[$i]["users"])<=0){
-							//si tiene 0 usuarios, borra el grupo.
-							array_splice($groups,$i,1);
-							//deleteGroup($get_group_id);
-						} else if(count($groups[$i]["users"])==1){
-							insertStatus($get_group_id,json_encode(array("type"=>"status","type"=>"you-are-alone")));
-						}
-						break;
-					}
-				}
+				db_methods.insertStatus(group.id, {status_type: "group-exit", by: socket.user_id });
 			})
 
 			socket.on("add-to-group", data => {			
@@ -438,6 +418,32 @@ const init = async () => {
 					})
 				}
 			})
+
+			socket.on('change-group-name', data => {
+				const group = groups.find(g => g.id == group_id);
+				if(group.users.filter(u => u == socket.user_id).length){
+					if(data.name.length > 22){
+						data.name = data.name.substr(0,22);
+					}
+					db_methods.insertStatus(group.id, {type: "group_name_change", group_name_change_from: group.name, group_name_change_to: data.name, by: socket.user_id});
+					db_methods.changeGroupName(g.id, data.name);
+					sockets.filter(s => group.users.includes(s.user_id)).forEach(s => {
+						s.emit("group-name-change", {
+							name: data.name,
+							group_id: data.id,
+							by: socket.id
+						})
+					})
+				}
+			})
+
+			socket.on("clear-messages", entity => {
+				db_methods.clearMessages(socket.user_id, entity);
+			})
+
+			socket.on("clear-message", data => {
+				db_methods.clearMessage(socket.user_id, data.entity, data.date, data.offset);
+			})
 		})
 
 		socket.on('disconnect', () => {
@@ -462,124 +468,8 @@ const init = async () => {
 		console.log('listening on *:3000');
 	});
 
-}
-
-init();
-		
-// 		switch($type){
-// 		    case "ms-check":
-// 		        send_message(json_encode(array("type"=>"pong","when"=>$tst_msg->when)),$user["username"]);
-// 		        break;
-		
-// 			case "exit-group":
-// 				$json = array("type"=>"exit-user-group","who"=>$user["username"],"group_id"=>$tst_msg->id);
-				
-// 				exitGroup(getUserID($user["username"]),getGroupID($tst_msg->id));
-				
-// 				for($i=0;$i<count($groups);$i++){
-// 					if($groups[$i]["id"]==$tst_msg->id && array_search($user["username"],$groups[$i]["users"]) !== false){
-// 						for($j=0;$j<count($groups[$i]["users"]);$j++){
-// 							send_message(json_encode($json),$groups[$i]["users"][$j]);
-// 						}
-// 						array_splice($groups[$i]["users"],array_search($user["username"],$groups[$i]["users"]),1);
+})();
 						
-// 						$get_group_id = getGroupID($groups[$i]["id"]);
-						
-// 						insertStatus($get_group_id,json_encode(array("type"=>"status","type"=>"group-exit","who"=>$user["username"])));
-// 						if(count($groups[$i]["users"])<=0){
-// 							//si tiene 0 usuarios, borra el grupo.
-// 							array_splice($groups,$i,1);
-// 							//deleteGroup($get_group_id);
-// 						} else if(count($groups[$i]["users"])==1){
-// 							insertStatus($get_group_id,json_encode(array("type"=>"status","type"=>"you-are-alone")));
-// 						}
-// 						break;
-// 					}
-// 				}
-				
-// 				break;
-				
-// 			case "change-group-name":
-// 				//el usuario que agrega gente tiene que estar en el grupo
-// 				$encontrado=false;
-// 				$group_index;
-				
-// 				for($i=0; $i<count($groups); $i++){
-// 					if($groups[$i]["id"]==$tst_msg->id){
-// 						$group_index = $i;
-// 						for($j=0;$j<count($groups[$i]["users"]);$j++){
-// 							if($groups[$i]["users"][$j]==$user["username"]){
-// 								$encontrado=true;
-// 								break 2;
-// 							}
-// 						}
-// 					}
-// 				}
-				
-// 				if(!$encontrado){
-// 					return;
-// 				}
-// 				//fin checkeo de usuario
-				
-// 				$final_name = $tst_msg->name;
-				
-// 				if(strlen($final_name)>22){
-// 					$final_name = mb_substr($final_name,0,22);
-// 				}
-				
-// 				if($final_name==""){
-// 					return;
-// 				}
-				
-// 				$json = array("type"=>"group-name-change","name"=>$final_name,"group_id"=>$tst_msg->id, "by"=>$user["username"]);
-// 				$groups[$group_index]["name"] = $final_name;
-				
-// 				$group_id = getGroupID($groups[$group_index]["id"]);
-				
-// 				changeGroupName($group_id,$final_name,$user["username"]);
-				
-// db_methods.insertStatus(group_id, 
-// 	{type: "group_name_change", 
-// 	group_name_change_from: from,
-// 	group_name_change_to: name,
-// 	by});
-
-// 				for($i=0;$i<count($groups[$group_index]["users"]);$i++){
-// 					send_message(json_encode($json),$groups[$group_index]["users"][$i]);
-// 				}
-				
-// 				break;
-				
-// 			case "seen":
-
-// 				break;
-				
-// 			case "load-historial":
-// 				$from = $tst_msg->from;
-// 				$target = $tst_msg->target;
-				
-// 				if (strpos($target, GROUPS_PREFIX) !== false) {
-// 					$group_id = getGroupID($target);
-// 					$historial = getHistorial(getUserID($user["username"]),$group_id,$from,true);
-// 				} else {
-// 					$historial = getHistorial(getUserID($user["username"]),getUserID($target),$from,false);
-// 				}
-				
-// 				send_message(json_encode(array("type"=>"historial","historial"=>(($historial!=false)?$historial:"end"),"target"=>$target)),$user["username"]);
-				
-// 				break;
-				
-// 			case "clear-messages":				
-// 				clearMessages(getUserID($user["username"]),$tst_msg->entity);
-// 				break;
-				
-// 			case "clear-single-message":		
-// 				clearSingleMessage(getUserID($user["username"]),$tst_msg->entity,$tst_msg->date,$tst_msg->offset);
-// 				break;
-// 			case "update-token":	
-// 				updateToken($user["username"],$tst_msg->token,$tst_msg->is_mobile);
-// 				break;
-				
 // 			case "survey":
 // 				try{
 // 					$survey = $tst_msg->survey;

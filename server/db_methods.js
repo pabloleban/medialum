@@ -276,23 +276,12 @@ exports.addMemberToGroup = (user_id, group_id) => {
 	})
 }
 
-exports.changeGroupName = (group_id, name, by) => {
-	let sql = `select name from groups
-			where id = ${group_id}`;
-	
-	return database.query(sql).then(result => {
-		from = "";
-	
-		if (result.length > 0) {
-			from = result[0].name;
-		}
+exports.changeGroupName = (group_id, name) => {
+	sql = `update groups
+			set name = '${name}'
+			where id = "${group_id};`
 		
-		sql = `update groups
-				set name = '${name}'
-				where id = "${group_id};`
-		
-		database.query(sql);
-	})	
+	database.query(sql);
 }
 
 exports.groupMessagesSeen = (user_id, group_id) => {
@@ -457,7 +446,7 @@ exports.clearMessages = (user_id, entity) => {
 	}
 }
 
-exports.clearSingleMessage = (user_id, entity, date, offset) => {	
+exports.clearMessage = (user_id, entity, date, offset) => {	
 	if(utils.isGroup(entity)){
 		entity = utils.getGroupID(entity);
 		
