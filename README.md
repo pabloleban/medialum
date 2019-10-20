@@ -5,6 +5,6 @@ Chat service with NodeJS and SocketIO.
 ### Node Server in Production
 Websocket service in SocketIO and NodeJS.
 
-### Code centralization
+### Centralized server
 Migration of whole Apache to Express.
  
